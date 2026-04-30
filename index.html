@@ -13,7 +13,7 @@ const LOGO_URL = `${GITHUB_BASE_URL}/tdmh-logo.png`;
 const BACKGROUND_URL = `${GITHUB_BASE_URL}/tdmh-background.jpg`;
 
 // !!! PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE !!!
-const APPS_SCRIPT_URL = ""; 
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw93n00Ey6NoG92Nvcli_uAzeDINXBOL_i6El6txQvoYEp4pLFlQ5BSyxKUqUiI2DUCiQ/exec"; 
 
 // --- DEFAULT DATA DEFINITIONS ---
 const DEFAULT_DEPARTMENTS = [
@@ -390,22 +390,34 @@ function LoginSelectView({ setView, setActiveDeptId, departments }) {
   const [loginType, setLoginType] = useState(null); 
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    let expectedHash;
-    if (loginType === 'admin') {
-      expectedHash = "VERNSCpQQ1M="; 
-    } else {
-      const deptObj = departments.find(d => d.id === selectedDept);
-      const cleanName = deptObj.title.replace(/^\d+\.\s*/, '').replace(/[^a-zA-Z]/g, '');
-      expectedHash = btoa("PCS" + cleanName); 
+    setIsAuthenticating(true);
+    setError('');
+    
+    const id = loginType === 'admin' ? 'admin' : selectedDept;
+    const name = loginType === 'admin' ? 'Master Admin' : departments.find(d => d.id === selectedDept)?.title;
+    
+    try {
+      // Connects directly to Google Sheets to verify the password securely
+      const url = `${APPS_SCRIPT_URL}?action=login&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&password=${encodeURIComponent(password)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      
+      if (data.success) {
+          setError('');
+          if (loginType === 'admin') setView('admin'); else { setActiveDeptId(selectedDept); setView('dept'); }
+      } else {
+          setError(data.message || 'Incorrect Password');
+      }
+    } catch (err) {
+      console.error("Login fetch error:", err);
+      setError('Network error connecting to database.');
     }
     
-    if (btoa(password) === expectedHash) {
-        setError('');
-        if (loginType === 'admin') setView('admin'); else { setActiveDeptId(selectedDept); setView('dept'); }
-    } else { setError('Incorrect Password'); }
+    setIsAuthenticating(false);
   };
 
   if (loginType) {
@@ -417,9 +429,11 @@ function LoginSelectView({ setView, setActiveDeptId, departments }) {
             <h2 className="text-2xl font-bold text-slate-800 mb-2 text-center">{loginType === 'admin' ? 'Master Admin' : departments.find(d=>d.id===selectedDept)?.title.replace(/^\d+\.\s*/, '')}</h2>
             <p className="text-center text-slate-500 mb-8">Enter secure password to continue.</p>
             <form onSubmit={handleLogin} className="space-y-4">
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-4 border-2 border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-sans text-lg" placeholder="Enter Password" autoFocus />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={isAuthenticating} className="w-full p-4 border-2 border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-sans text-lg disabled:opacity-50" placeholder="Enter Password" autoFocus />
               {error && <p className="text-red-500 text-sm mt-2 font-bold flex items-center gap-1"><AlertTriangle className="w-4 h-4"/>{error}</p>}
-              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl text-lg transition-colors active:scale-95">Unlock Portal</button>
+              <button type="submit" disabled={isAuthenticating} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl text-lg transition-colors active:scale-95 flex justify-center items-center gap-2 disabled:opacity-70">
+                {isAuthenticating ? <><RefreshCw className="w-5 h-5 animate-spin" /> Verifying...</> : 'Unlock Portal'}
+              </button>
             </form>
          </div>
        </div>
