@@ -32,13 +32,20 @@ const DEFAULT_DEPARTMENTS = [
   { id: 'security', title: '13. General Services: Elevator & Security', questions: [{ id: 'sec_1', text: 'Availability of the elevator' }, { id: 'sec_2', text: 'Cleanliness of the elevator' }, { id: 'sec_3', text: 'Security: Courtesy and politeness' }, { id: 'sec_4', text: 'Security: Ability to protect clients (bag inspection)' }, { id: 'sec_5', text: 'Security: Promptness in attending to security calls' }] }
 ];
 
+// Split the questions into Intake (Start) and General (End)
+const INTAKE_QUESTIONS = [
+  { id: 'date', text: 'Date of Visit / Admission', type: 'date', required: true },
+  { id: 'room_number', text: 'Room Number / Ward', type: 'short_text', required: true },
+  { id: 'patient_name', text: 'Patient Name (Optional)', type: 'short_text', required: false }
+];
+
 const GENERAL_QUESTIONS = [
-  { id: 'gen_1', text: 'Is this your first time being admitted to this facility?', type: 'yesno' },
-  { id: 'gen_2', text: 'Have you visited or have you been admitted to another hospital?', type: 'yesno' },
-  { id: 'gen_3', text: 'How do you compare Taytay Doctors Multispecialty Hospital to other hospitals?', type: 'text' },
-  { id: 'gen_4', text: 'Do you want to receive health tips and service updates from Taytay Doctors?', type: 'yesno' },
-  { id: 'gen_5', text: 'Would you recommend our hospital to your family and friends?', type: 'yesno' },
-  { id: 'gen_6', text: 'Generally, were you satisfied with our services?', type: 'yesno' }
+  { id: 'gen_1', text: 'Is this your first time being admitted to this facility?', type: 'yesno', required: true },
+  { id: 'gen_2', text: 'Have you visited or have you been admitted to another hospital?', type: 'yesno', required: true },
+  { id: 'gen_3', text: 'How do you compare Taytay Doctors Multispecialty Hospital to other hospitals?', type: 'text', required: true },
+  { id: 'gen_4', text: 'Do you want to receive health tips and service updates from Taytay Doctors?', type: 'yesno', required: true },
+  { id: 'gen_5', text: 'Would you recommend our hospital to your family and friends?', type: 'yesno', required: true },
+  { id: 'gen_6', text: 'Generally, were you satisfied with our services?', type: 'yesno', required: true }
 ];
 
 // --- UTILITY LOGIC ---
@@ -114,7 +121,6 @@ export default function App() {
     setIsSubmitting(true);
     const finalData = { ...surveyData, timestamp: new Date().toISOString(), id: Date.now().toString() };
     
-    // Pass the FULL title matching the specific tab name created by the backend Setup function
     Object.keys(finalData.departments).forEach(id => {
       finalData.departments[id].title = departments.find(d => d.id === id)?.title;
     });
@@ -232,10 +238,14 @@ function HomeView({ setView }) {
 // --- PATIENT SURVEY WIZARD ---
 function PatientSurvey({ onSubmit, activeDepartments, departments, isSubmitting }) {
   const availableDepartments = departments.filter(dept => activeDepartments[dept.id]);
+  
+  // step 0 = intake, step 1 to N = departments, step N+1 = general feedback
   const [step, setStep] = useState(0);
   const [surveyData, setSurveyData] = useState({ departments: {}, general: {} });
-  const isGeneralStep = step === availableDepartments.length;
-  const currentDept = !isGeneralStep ? availableDepartments[step] : null;
+  
+  const isIntakeStep = step === 0;
+  const isGeneralStep = step === availableDepartments.length + 1;
+  const currentDept = (!isIntakeStep && !isGeneralStep) ? availableDepartments[step - 1] : null;
 
   const [currentAnswers, setCurrentAnswers] = useState({});
   const [currentComment, setCurrentComment] = useState("");
@@ -249,8 +259,18 @@ function PatientSurvey({ onSubmit, activeDepartments, departments, isSubmitting 
 
   const handleRating = (questionId, score) => setCurrentAnswers(prev => ({ ...prev, [questionId]: score }));
 
+  const handleIntakeSubmit = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const intake = {};
+    INTAKE_QUESTIONS.forEach(q => intake[q.id] = formData.get(q.id) || "");
+    setSurveyData(prev => ({ ...prev, general: { ...prev.general, ...intake } }));
+    setStep(1); // Proceed to first department
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const saveDepartmentAndProceed = (skipped = false) => {
-    if (!isGeneralStep) {
+    if (currentDept) {
       setSurveyData(prev => ({ 
         ...prev, 
         departments: { 
@@ -266,7 +286,7 @@ function PatientSurvey({ onSubmit, activeDepartments, departments, isSubmitting 
   const handleGeneralSubmit = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const generalData = {};
+    const generalData = { ...surveyData.general }; // Start with intake answers
     GENERAL_QUESTIONS.forEach(q => generalData[q.id] = formData.get(q.id) || "");
     onSubmit({ ...surveyData, general: generalData });
   };
@@ -274,7 +294,35 @@ function PatientSurvey({ onSubmit, activeDepartments, departments, isSubmitting 
   const answeredScores = Object.values(currentAnswers);
   const lowestScore = answeredScores.length > 0 ? Math.min(...answeredScores) : null;
   const needsImprovement = lowestScore !== null && lowestScore <= 2;
-  const progressPercent = ((step) / (availableDepartments.length + 1)) * 100;
+  const progressPercent = (step / (availableDepartments.length + 1)) * 100;
+
+  if (isIntakeStep) {
+    return (
+      <div className="max-w-3xl mx-auto animate-in slide-in-from-right-8 duration-500 font-sans">
+        <div className="mb-6"><div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner"></div><p className="text-right text-sm text-slate-500 mt-2 font-bold uppercase tracking-wider bg-white/50 inline-block px-2 rounded float-right">Initial Details</p><div className="clear-both"></div></div>
+        <div className="bg-white/95 backdrop-blur-md rounded-[2rem] shadow-2xl overflow-hidden border border-white">
+          <div className="bg-gradient-to-br from-emerald-600 to-teal-800 p-8 text-white text-center"><h2 className="text-3xl font-bold font-serif">Visit Details</h2><p className="text-teal-100 mt-2 text-lg">Please provide a few details about your visit before we begin.</p></div>
+          <form onSubmit={handleIntakeSubmit} className="p-6 sm:p-10 space-y-8">
+            {INTAKE_QUESTIONS.map((q) => (
+              <div key={q.id} className="space-y-4 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                <label className="block text-slate-800 font-bold text-lg leading-snug">
+                  {q.text} {q.required && <span className="text-red-500">*</span>}
+                </label>
+                {q.type === 'short_text' ? (
+                  <input type="text" name={q.id} required={q.required} defaultValue={surveyData.general[q.id] || ''} className="w-full border-2 border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 outline-none font-medium text-slate-700" placeholder="Type your answer here..." />
+                ) : q.type === 'date' ? (
+                  <input type="date" name={q.id} required={q.required} defaultValue={surveyData.general[q.id] || ''} className="w-full border-2 border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 outline-none font-medium text-slate-700" />
+                ) : null}
+              </div>
+            ))}
+            <div className="pt-6 flex gap-4">
+              <button type="submit" className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-xl">Continue to Survey <ChevronRight className="w-6 h-6" /></button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (isGeneralStep) {
     return (
@@ -285,13 +333,17 @@ function PatientSurvey({ onSubmit, activeDepartments, departments, isSubmitting 
           <form onSubmit={handleGeneralSubmit} className="p-6 sm:p-10 space-y-8">
             {GENERAL_QUESTIONS.map((q) => (
               <div key={q.id} className="space-y-4 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                <label className="block text-slate-800 font-bold text-lg leading-snug">{q.text}</label>
+                <label className="block text-slate-800 font-bold text-lg leading-snug">
+                  {q.text} {q.required && <span className="text-red-500">*</span>}
+                </label>
                 {q.type === 'yesno' ? (
                   <div className="flex gap-4">
-                    <label className="flex items-center justify-center gap-2 cursor-pointer bg-white hover:bg-emerald-50 border-2 border-slate-200 py-4 px-6 rounded-xl flex-1 transition-all shadow-sm"><input type="radio" name={q.id} value="Yes" required className="w-5 h-5 text-emerald-600 accent-emerald-600" /><span className="font-bold text-slate-700 text-lg">Yes</span></label>
-                    <label className="flex items-center justify-center gap-2 cursor-pointer bg-white hover:bg-slate-100 border-2 border-slate-200 py-4 px-6 rounded-xl flex-1 transition-all shadow-sm"><input type="radio" name={q.id} value="No" required className="w-5 h-5 text-slate-600 accent-slate-600" /><span className="font-bold text-slate-700 text-lg">No</span></label>
+                    <label className="flex items-center justify-center gap-2 cursor-pointer bg-white hover:bg-emerald-50 border-2 border-slate-200 py-4 px-6 rounded-xl flex-1 transition-all shadow-sm"><input type="radio" name={q.id} value="Yes" required={q.required} className="w-5 h-5 text-emerald-600 accent-emerald-600" /><span className="font-bold text-slate-700 text-lg">Yes</span></label>
+                    <label className="flex items-center justify-center gap-2 cursor-pointer bg-white hover:bg-slate-100 border-2 border-slate-200 py-4 px-6 rounded-xl flex-1 transition-all shadow-sm"><input type="radio" name={q.id} value="No" required={q.required} className="w-5 h-5 text-slate-600 accent-slate-600" /><span className="font-bold text-slate-700 text-lg">No</span></label>
                   </div>
-                ) : ( <textarea name={q.id} rows={3} className="w-full border-2 border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 outline-none resize-none" placeholder="Type your answer here..."></textarea> )}
+                ) : ( 
+                  <textarea name={q.id} rows={3} required={q.required} className="w-full border-2 border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 outline-none resize-none font-medium text-slate-700" placeholder="Type your answer here..."></textarea> 
+                )}
               </div>
             ))}
             <div className="pt-6 flex gap-4">
@@ -307,7 +359,7 @@ function PatientSurvey({ onSubmit, activeDepartments, departments, isSubmitting 
   return (
     <div className="max-w-3xl mx-auto animate-in fade-in duration-500 font-sans">
       <div className="mb-8">
-        <div className="flex justify-between items-end mb-2"><span className="text-lg font-bold text-emerald-900 bg-white/80 px-3 py-1 rounded-lg backdrop-blur-sm shadow-sm font-serif">{currentDept.title}</span><span className="text-xs font-bold text-teal-800 bg-teal-100/90 px-3 py-1 rounded-full backdrop-blur-sm shadow-sm">Step {step + 1} of {availableDepartments.length}</span></div>
+        <div className="flex justify-between items-end mb-2"><span className="text-lg font-bold text-emerald-900 bg-white/80 px-3 py-1 rounded-lg backdrop-blur-sm shadow-sm font-serif">{currentDept.title}</span><span className="text-xs font-bold text-teal-800 bg-teal-100/90 px-3 py-1 rounded-full backdrop-blur-sm shadow-sm">Step {step} of {availableDepartments.length}</span></div>
         <div className="h-3 w-full bg-white/80 rounded-full overflow-hidden shadow-inner backdrop-blur-sm border border-slate-200"><div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500" style={{ width: `${progressPercent}%` }}></div></div>
       </div>
       <div className="bg-white/95 backdrop-blur-md rounded-[2rem] shadow-2xl overflow-hidden border border-white">
@@ -356,7 +408,7 @@ function PatientSurvey({ onSubmit, activeDepartments, departments, isSubmitting 
                 </div>
               )}
               <div className="flex gap-4 pt-2">
-                 {step > 0 && <button onClick={() => setStep(step - 1)} className="px-6 py-4 rounded-xl font-bold text-slate-500 bg-white border border-slate-200 shadow-sm hover:bg-slate-50">BACK</button>}
+                 <button onClick={() => setStep(step - 1)} className="px-6 py-4 rounded-xl font-bold text-slate-500 bg-white border border-slate-200 shadow-sm hover:bg-slate-50">BACK</button>
                  <button onClick={() => saveDepartmentAndProceed(false)} className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 text-xl tracking-wide ${needsImprovement ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
                   {!needsImprovement ? <><ThumbsUp className="w-6 h-6"/> 👍 ALL GOOD! (NEXT)</> : <>CONTINUE <ChevronRight className="w-6 h-6"/></>}
                 </button>
@@ -591,13 +643,13 @@ function AdminDashboard({ responses, activeDepartments, setActiveDepartments, de
         GENERAL_QUESTIONS.forEach(q => {
           const ans = res.general[q.id];
           if (!ans) return;
-          if (!genTallies[q.id].monthly[resMonth]) genTallies[q.id].monthly[resMonth] = { Yes: 0, No: 0, responses: [], isText: q.type === 'text' };
+          if (!genTallies[q.id].monthly[resMonth]) genTallies[q.id].monthly[resMonth] = { Yes: 0, No: 0, responses: [], isText: q.type === 'text' || q.type === 'short_text' || q.type === 'date' };
 
           if (q.type === 'yesno') {
             genTallies[q.id].overall[ans]++;
             genTallies[q.id].monthly[resMonth][ans]++;
             genTallies[q.id].monthly[resMonth].responses.push({ date: res.timestamp, value: ans, isText: false });
-          } else if (q.type === 'text') {
+          } else {
              genTallies[q.id].monthly[resMonth].responses.push({ date: res.timestamp, value: ans, isText: true });
              const matchCount = (ans.match(criticalRegex) || []).length;
              if (matchCount > 0) {
