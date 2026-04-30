@@ -12,7 +12,7 @@ const GITHUB_BASE_URL = "https://raw.githubusercontent.com/tdmh-cqi/CustomerSurv
 const LOGO_URL = `${GITHUB_BASE_URL}/tdmh-logo.png`;
 const BACKGROUND_URL = `${GITHUB_BASE_URL}/tdmh-background.jpg`;
 
-// !!! PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE !!!
+// APPS SCRIPT WEB APP URL
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw93n00Ey6NoG92Nvcli_uAzeDINXBOL_i6El6txQvoYEp4pLFlQ5BSyxKUqUiI2DUCiQ/exec"; 
 
 // --- DEFAULT DATA DEFINITIONS ---
@@ -55,7 +55,6 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [drillDown, setDrillDown] = useState(null); 
 
-  // 1. INSTANT LOAD: Load responses from local cache immediately so UI doesn't wait
   const [responses, setResponses] = useState(() => {
     const saved = localStorage.getItem('tdmh_responses');
     return saved ? JSON.parse(saved) : [];
@@ -71,28 +70,23 @@ export default function App() {
   useEffect(() => localStorage.setItem('tdmh_departments', JSON.stringify(departments)), [departments]);
   useEffect(() => localStorage.setItem('tdmh_active_depts', JSON.stringify(activeDepartments)), [activeDepartments]);
 
-  // 2. REAL-TIME BACKGROUND SYNC (Polling)
+  // REAL-TIME BACKGROUND SYNC (Polling)
   useEffect(() => {
     if (!APPS_SCRIPT_URL) return;
     
     const fetchHistory = async () => {
-      // Show the syncing spinner subtly when in admin views
       if (view === 'admin' || view === 'dept') setIsSyncing(true);
       
       try {
         const lastSync = localStorage.getItem('tdmh_last_sync') || '';
-        // If we have a last sync date, append it to only fetch what's new
         const fetchUrl = lastSync ? `${APPS_SCRIPT_URL}?lastSync=${encodeURIComponent(lastSync)}` : APPS_SCRIPT_URL;
         
         const res = await fetch(fetchUrl);
         const newData = await res.json();
         
-        // If Google Sheets returns new surveys, instantly merge them into the live dashboard
         if (Array.isArray(newData) && newData.length > 0) {
           setResponses(prev => {
             const combined = [...newData, ...prev];
-            
-            // Deduplicate to prevent double-counting
             const uniqueMap = new Map();
             combined.forEach(item => { if (item.id) uniqueMap.set(item.id, item); });
             const sortedUnique = Array.from(uniqueMap.values()).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -102,7 +96,6 @@ export default function App() {
           });
         }
         
-        // Save the exact time we just checked
         localStorage.setItem('tdmh_last_sync', new Date().toISOString());
 
       } catch (err) {
@@ -112,28 +105,20 @@ export default function App() {
       }
     };
 
-    // 1. Fetch immediately when the portal opens
     fetchHistory();
-
-    // 2. The "Live Streaming" Simulator: Auto-check for new surveys every 30 seconds
-    const intervalId = setInterval(() => {
-      if (view === 'admin' || view === 'dept') {
-        fetchHistory();
-      }
-    }, 30000); // 30,000 ms = 30 seconds
-
-    return () => clearInterval(intervalId); // Cleanup timer when you leave the page
+    const intervalId = setInterval(() => { if (view === 'admin' || view === 'dept') fetchHistory(); }, 30000); 
+    return () => clearInterval(intervalId); 
   }, [view]);
 
   const handleSurveySubmit = async (surveyData) => {
     setIsSubmitting(true);
-    // Add a unique ID to prevent any duplicate bugs during merging
     const finalData = { ...surveyData, timestamp: new Date().toISOString(), id: Date.now().toString() };
+    
+    // Pass the FULL title matching the specific tab name created by the backend Setup function
     Object.keys(finalData.departments).forEach(id => {
-      finalData.departments[id].title = departments.find(d => d.id === id)?.title.replace(/^\d+\.\s*/, '');
+      finalData.departments[id].title = departments.find(d => d.id === id)?.title;
     });
     
-    // Optimistically update UI and Cache
     setResponses(prev => {
       const newResponses = [finalData, ...prev];
       localStorage.setItem('tdmh_responses', JSON.stringify(newResponses));
@@ -401,7 +386,6 @@ function LoginSelectView({ setView, setActiveDeptId, departments }) {
     const name = loginType === 'admin' ? 'Master Admin' : departments.find(d => d.id === selectedDept)?.title;
     
     try {
-      // Connects directly to Google Sheets to verify the password securely
       const url = `${APPS_SCRIPT_URL}?action=login&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&password=${encodeURIComponent(password)}`;
       const res = await fetch(url);
       const data = await res.json();
