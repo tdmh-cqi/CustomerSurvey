@@ -8,6 +8,16 @@
   <!-- Tailwind CSS for Styling -->
   <script src="https://cdn.tailwindcss.com"></script>
   
+  <!-- Configure Tailwind for Dark Mode via Class -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {},
+      }
+    }
+  </script>
+
   <!-- Babel to compile React JSX in the browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
@@ -22,11 +32,9 @@
     }
   </script>
 </head>
-<body>
-  <!-- This is where your React app will mount -->
+<body class="transition-colors duration-300">
   <div id="root"></div>
 
-  <!-- Your exact React code, marked as a module so imports work -->
   <script type="text/babel" data-type="module">
     import React, { useState, useEffect, useMemo } from 'react';
     import { createRoot } from 'react-dom/client';
@@ -34,7 +42,7 @@
       ClipboardList, LayoutDashboard, ChevronRight, SkipForward, 
       ThumbsUp, MessageSquare, Star, ArrowLeft, Settings, 
       UserCheck, AlertTriangle, Send, Lock, BarChart, QrCode, Printer, 
-      BarChart3, Plus, Edit2, TrendingUp, TrendingDown, HeartHandshake, X, CalendarDays, RefreshCw, Filter, Save
+      BarChart3, Plus, Edit2, TrendingUp, TrendingDown, HeartHandshake, X, CalendarDays, RefreshCw, Save, Check, Moon, Sun
     } from 'lucide-react';
 
     // --- CONFIGURATION & EXTERNAL ASSETS ---
@@ -46,24 +54,21 @@
     // APPS SCRIPT WEB APP URL
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw93n00Ey6NoG92Nvcli_uAzeDINXBOL_i6El6txQvoYEp4pLFlQ5BSyxKUqUiI2DUCiQ/exec"; 
 
-    // --- DEFAULT DATA DEFINITIONS ---
     const DEFAULT_DEPARTMENTS = [
-      { id: 'admitting', title: '1. Admitting Services', questions: [{ id: 'adm_1', text: 'Ease of the admission process (registration, waiting time, paperwork)' }, { id: 'adm_2', text: 'Did the staff clearly explain the forms you were signing?' }, { id: 'adm_3', text: 'Were your financial responsibilities/insurance explained clearly?' }, { id: 'adm_4', text: 'Comfort and cleanliness of the waiting area' }, { id: 'adm_5', text: 'Courtesy and professionalism of the staff' }] },
-      { id: 'er', title: '2. Emergency Services (E.R)', questions: [{ id: 'er_1', text: 'The triage process was handled efficiently.' }, { id: 'er_2', text: 'Provide adequate information regarding your health conditions and management.' }, { id: 'er_3', text: 'The waiting time was reasonable.' }, { id: 'er_4', text: 'Comfort and cleanliness of the waiting area' }, { id: 'er_5', text: 'Staff treat you with courtesy and respect' }] },
-      { id: 'nursing', title: '3. Patient Care/Nursing Services', questions: [{ id: 'nur_1', text: 'How often did healthcare team treat you with courtesy and respect?' }, { id: 'nur_2', text: 'How clearly did the Nurses/Doctors explain your treatments?' }, { id: 'nur_3', text: 'Promptness in attending to patient\'s needs and comfort.' }, { id: 'nur_4', text: 'Were you involved as much as you wanted to be in decisions about your care and treatment?' }, { id: 'nur_5', text: 'Receive clear, written information regarding follow-up care?' }] },
-      { id: 'ancillary', title: '4. Ancillary/Diagnostic Services', questions: [{ id: 'anc_1', text: 'Radiology Services' }, { id: 'anc_2', text: 'Pathology & Laboratory Services' }, { id: 'anc_3', text: 'Heart Station' }, { id: 'anc_4', text: 'Pharmacy' }] },
-      { id: 'dietary', title: '5. Dietary Services', questions: [{ id: 'die_1', text: 'Courtesy and politeness of staff' }, { id: 'die_2', text: 'Tastiness of food' }, { id: 'die_3', text: 'Food presentation' }, { id: 'die_4', text: 'Food Variation' }, { id: 'die_5', text: 'Cleanliness of utensils' }] },
-      { id: 'special', title: '6. Special Services', questions: [{ id: 'spc_1', text: 'Operating Room' }, { id: 'spc_2', text: 'Neonatal ICU' }, { id: 'spc_3', text: 'Hemodialysis' }] },
-      { id: 'cashier', title: '7. Cashier', questions: [{ id: 'cas_1', text: 'Courtesy and politeness' }, { id: 'cas_2', text: 'Promptness in attending to your needs' }, { id: 'cas_3', text: 'Accuracy in processing transactions' }] },
-      { id: 'billing', title: '8. Billing', questions: [{ id: 'bil_1', text: 'Courtesy and politeness' }, { id: 'bil_2', text: 'Promptness in preparing the statement of the Account' }, { id: 'bil_3', text: 'Accuracy in processing the official statement of account' }] },
-      { id: 'philhealth', title: '9. Philhealth', questions: [{ id: 'phi_1', text: 'Courtesy and politeness' }, { id: 'phi_2', text: 'Promptness in attending to your needs' }, { id: 'phi_3', text: 'Ability to explain requirements' }] },
-      { id: 'housekeeping', title: '10. General Services: Housekeeping & Linens', questions: [{ id: 'hsk_1', text: 'Courtesy and politeness of staff' }, { id: 'hsk_2', text: 'Cleanliness of room and toilet' }, { id: 'hsk_3', text: 'Cleanliness of linens' }, { id: 'hsk_4', text: 'Promptness in attending to your Requests' }] },
-      { id: 'facilities', title: '11. General Services: Room Facilities & Utilities', questions: [{ id: 'fac_1', text: 'Ventilation/Air conditioning' }, { id: 'fac_2', text: 'Call Buttons' }, { id: 'fac_3', text: 'Lighting' }, { id: 'fac_4', text: 'Furniture/fixtures and appliances' }] },
-      { id: 'parking', title: '12. General Services: Parking', questions: [{ id: 'par_1', text: 'Availability of space' }, { id: 'par_2', text: 'Safety of the area' }, { id: 'par_3', text: 'Sufficient Lighting' }] },
-      { id: 'security', title: '13. General Services: Elevator & Security', questions: [{ id: 'sec_1', text: 'Availability of the elevator' }, { id: 'sec_2', text: 'Cleanliness of the elevator' }, { id: 'sec_3', text: 'Security: Courtesy and politeness' }, { id: 'sec_4', text: 'Security: Ability to protect clients (bag inspection)' }, { id: 'sec_5', text: 'Security: Promptness in attending to security calls' }] }
+      { id: 'admitting', title: 'Admitting Services', type: 'standard', questions: [{ id: 'adm_1', text: 'How was your experience with the Admitting Services and the staff(s)?' }] },
+      { id: 'er', title: 'Emergency Room Services', type: 'standard', questions: [{ id: 'er_1', text: 'How was your experience with the E.R Services and the staff(s)?' }] },
+      { id: 'nursing', title: 'Patient Care/Nursing Services', type: 'standard', questions: [{ id: 'nur_1', text: 'How was your Experience with our Nursing Services/Staff(s)?' }] },
+      { id: 'ancillary', title: 'Ancillary/Diagnostic Services', type: 'checkbox', services: ['Radiology', 'Pathology', 'Laboratory', 'Heart Station'], questions: [{ id: 'anc_1', text: 'How was your experience with our services and the staff(s)?' }] },
+      { id: 'dietary', title: 'Dietary Services', type: 'standard', questions: [{ id: 'die_1', text: 'How was your experience with our Hospital\'s Food?' }] },
+      { id: 'special', title: 'Special Services', type: 'checkbox', services: ['Operating Room', 'NICU', 'Hemodialysis'], questions: [{ id: 'spc_1', text: 'How was your experience with the Service(s)?' }] },
+      { id: 'cashier', title: 'Cashier', type: 'standard', questions: [{ id: 'cas_1', text: 'How was your experience with Our Cashier Service/Staff(s)?' }] },
+      { id: 'billing', title: 'Billing', type: 'standard', questions: [{ id: 'bil_1', text: 'How was your experience with our Billing Service/Staff(s)?' }] },
+      { id: 'philhealth', title: 'Philhealth', type: 'standard', questions: [{ id: 'phi_1', text: 'How was your experience with the Philhealth Service/Staff(s)?' }] },
+      { id: 'housekeeping', title: 'General Services: Housekeeping', type: 'standard', questions: [{ id: 'hsk_1', text: 'How was your experience with our Housekeeping Service/Staff(s)?' }] },
+      { id: 'linens', title: 'General Services: Linens', type: 'standard', questions: [{ id: 'lin_1', text: 'How was your experience with our Linen Service/Staff(s)?' }] },
+      { id: 'maintenance', title: 'General Services: Room Facilities & Utilities (Maintenance)', type: 'standard', questions: [{ id: 'mnt_1', text: 'How was your experience with our Maintenance Services/Staff(s)?' }] }
     ];
 
-    // Split the questions into Intake (Start) and General (End)
     const INTAKE_QUESTIONS = [
       { id: 'date', text: 'Date of Visit / Admission', type: 'date', required: true },
       { id: 'room_number', text: 'Room Number / Ward', type: 'short_text', required: true },
@@ -73,26 +78,61 @@
     const GENERAL_QUESTIONS = [
       { id: 'gen_1', text: 'Is this your first time being admitted to this facility?', type: 'yesno', required: true },
       { id: 'gen_2', text: 'Have you visited or have you been admitted to another hospital?', type: 'yesno', required: true },
-      { id: 'gen_3', text: 'How do you compare Taytay Doctors Multispecialty Hospital to other hospitals?', type: 'text', required: true },
+      { id: 'gen_3', text: 'How do you compare Taytay Doctors Multispecialty Hospital to other hospitals?', type: 'compare', required: true },
       { id: 'gen_4', text: 'Do you want to receive health tips and service updates from Taytay Doctors?', type: 'yesno', required: true },
       { id: 'gen_5', text: 'Would you recommend our hospital to your family and friends?', type: 'yesno', required: true },
       { id: 'gen_6', text: 'Generally, were you satisfied with our services?', type: 'yesno', required: true }
     ];
 
-    // --- UTILITY LOGIC ---
     const getMonthString = (dateObj) => `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-    const getPrevMonthString = () => {
-        const d = new Date(); d.setMonth(d.getMonth() - 1); return getMonthString(d);
-    };
     const ALL_MONTHS_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const VERSION_KEY = "tdmh_system_v5";
 
-    // --- MAIN APPLICATION COMPONENT ---
     function App() {
       const [view, setView] = useState('home'); 
       const [activeDeptId, setActiveDeptId] = useState(null); 
       const [isSubmitting, setIsSubmitting] = useState(false);
+      const [showSuccess, setShowSuccess] = useState(false); // NEW: State for Success Modal
       const [isSyncing, setIsSyncing] = useState(false);
       const [drillDown, setDrillDown] = useState(null); 
+      
+      // Theme State (Dark / Light)
+      const [isDark, setIsDark] = useState(() => {
+        const savedTheme = localStorage.getItem('tdmh_theme');
+        return savedTheme === 'dark';
+      });
+
+      useEffect(() => {
+        if (localStorage.getItem('tdmh_version') !== VERSION_KEY) {
+          localStorage.removeItem('tdmh_departments');
+          localStorage.removeItem('tdmh_active_depts');
+          localStorage.setItem('tdmh_version', VERSION_KEY);
+        }
+      }, []);
+
+      // Apply Dark Mode Class to HTML Element
+      useEffect(() => {
+        const rootElement = document.documentElement;
+        if (isDark) {
+          rootElement.classList.add('dark');
+          localStorage.setItem('tdmh_theme', 'dark');
+        } else {
+          rootElement.classList.remove('dark');
+          localStorage.setItem('tdmh_theme', 'light');
+        }
+      }, [isDark]);
+
+      // Handle the "Peeling/Swipe" Transition
+      const toggleTheme = () => {
+        if (!document.startViewTransition) {
+          setIsDark(!isDark);
+          return;
+        }
+        
+        document.startViewTransition(() => {
+          setIsDark(prev => !prev);
+        });
+      };
 
       const [responses, setResponses] = useState(() => {
         const saved = localStorage.getItem('tdmh_responses');
@@ -114,27 +154,21 @@
       useEffect(() => localStorage.setItem('tdmh_departments', JSON.stringify(departments)), [departments]);
       useEffect(() => localStorage.setItem('tdmh_active_depts', JSON.stringify(activeDepartments)), [activeDepartments]);
 
-      // REAL-TIME BACKGROUND SYNC (Polling)
       useEffect(() => {
         if (!APPS_SCRIPT_URL) return;
-        
         const fetchHistory = async () => {
           if (view === 'admin' || view === 'dept') setIsSyncing(true);
-          
           try {
             const lastSync = localStorage.getItem('tdmh_last_sync') || '';
             const fetchUrl = lastSync ? `${APPS_SCRIPT_URL}?lastSync=${encodeURIComponent(lastSync)}&includeCensus=true` : `${APPS_SCRIPT_URL}?includeCensus=true`;
-            
             const res = await fetch(fetchUrl);
             const newData = await res.json();
             
-            // Sync Census
             if (newData.census) {
               setCensusData(newData.census);
               localStorage.setItem('tdmh_census', JSON.stringify(newData.census));
             }
 
-            // Sync Responses
             const resArray = newData.responses || (Array.isArray(newData) ? newData : []);
             if (Array.isArray(resArray) && resArray.length > 0) {
               setResponses(prev => {
@@ -142,16 +176,13 @@
                 const uniqueMap = new Map();
                 combined.forEach(item => { if (item.id) uniqueMap.set(item.id, item); });
                 const sortedUnique = Array.from(uniqueMap.values()).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-                
                 localStorage.setItem('tdmh_responses', JSON.stringify(sortedUnique));
                 return sortedUnique;
               });
             }
-            
             localStorage.setItem('tdmh_last_sync', new Date().toISOString());
-
           } catch (err) {
-            console.error("Historical data sync failed.", err);
+            console.warn("Sync paused (Offline or CORS). Running on local database.");
           } finally {
             setIsSyncing(false);
           }
@@ -182,23 +213,53 @@
           } catch (error) { console.error("Error saving to Google Sheets:", error); }
         }
         
-        setIsSubmitting(false); setView('home');
-        alert("Survey submitted successfully! Thank you for your feedback.");
+        setIsSubmitting(false); 
+        setShowSuccess(true); // Show professional success modal instead of abruptly switching
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       };
 
+      const handleCloseSuccess = () => {
+        setShowSuccess(false);
+        setView('home');
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
+
       return (
-        <div className={`min-h-screen bg-slate-50 text-slate-800 selection:bg-blue-200 relative pro-font flex flex-col ${drillDown ? 'overflow-hidden' : ''}`}>
+        <div className={`min-h-screen transition-colors duration-500 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 selection:bg-blue-200 dark:selection:bg-blue-800 relative pro-font flex flex-col ${(drillDown || showSuccess) ? 'overflow-hidden' : ''}`}>
           <style dangerouslySetInnerHTML={{__html: `
             @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
             .pro-font { font-family: 'Lora', serif; }
             .hide-scrollbar::-webkit-scrollbar { display: none; }
             .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             
-            .custom-scrollbar::-webkit-scrollbar { height: 6px; }
-            .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
-            .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-            .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+            .custom-scrollbar::-webkit-scrollbar { height: 8px; }
+            .custom-scrollbar::-webkit-scrollbar-track { background: transparent; border-radius: 8px; }
+            .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+            .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
             
+            /* VIEW TRANSITION ANIMATIONS (The Peeling/Swipe Effect) */
+            ::view-transition-old(root),
+            ::view-transition-new(root) {
+              animation: none;
+              mix-blend-mode: normal;
+            }
+            ::view-transition-old(root) {
+              z-index: 1;
+            }
+            ::view-transition-new(root) {
+              z-index: 2;
+            }
+            
+            .dark::view-transition-new(root),
+            :not(.dark)::view-transition-new(root) {
+              animation: diagonal-wipe 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            }
+            
+            @keyframes diagonal-wipe {
+              0% { clip-path: circle(0% at 100% 0%); }
+              100% { clip-path: circle(150% at 100% 0%); }
+            }
+
             @media print {
               body * { visibility: hidden; }
               body.printing-modal .print-modal-content, body.printing-modal .print-modal-content * { visibility: visible; }
@@ -212,52 +273,77 @@
           {drillDown && <style>{`body { class: "printing-modal" }`}</style>}
           {!drillDown && <style>{`body { class: "" }`}</style>}
 
-          <div className="fixed inset-0 z-0 pointer-events-none opacity-20 mix-blend-multiply no-print" style={{ backgroundImage: `url('${BACKGROUND_URL}')`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }} />
+          {/* BACKGROUND LAYER OVERHAUL */}
+          <div className="fixed inset-0 z-0 pointer-events-none transition-colors duration-700">
+             <div className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-700 ${isDark ? 'opacity-[0.15] mix-blend-luminosity' : 'opacity-20 mix-blend-multiply'}`} style={{ backgroundImage: `url('${BACKGROUND_URL}')` }} />
+             <div className={`absolute inset-0 transition-opacity duration-700 ${isDark ? 'bg-blue-950/80 opacity-100' : 'bg-transparent opacity-0'}`} />
+          </div>
           
-          <header className="bg-white/95 backdrop-blur-md shadow-sm border-b-4 border-blue-600 sticky top-0 z-20 no-print">
-            <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between relative min-h-[6rem] sm:min-h-[7rem]">
-              <div className="flex-1 flex justify-start items-center">
-                {view === 'home' && (
-                  <button onClick={() => setView('qr')} className="text-sm font-bold text-slate-500 hover:text-blue-700 flex items-center gap-2 px-3 py-2 rounded-xl transition-all hover:bg-blue-50 border border-transparent hover:border-blue-200 shadow-sm bg-white">
-                    <QrCode className="w-5 h-5" /> <span className="hidden sm:inline">Show QR Sign</span>
-                  </button>
-                )}
-                {(view === 'admin' || view === 'dept') && isSyncing && (
-                  <span className="text-xs font-bold text-slate-400 flex items-center gap-2 animate-pulse bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200"><RefreshCw className="w-3 h-3 animate-spin"/> Syncing DB</span>
-                )}
-              </div>
-              <div className="flex-1 flex justify-center cursor-pointer group bg-white rounded-xl p-2" title="Refresh Site" onClick={() => window.location.reload()}>
-                <img src={LOGO_URL} alt="Taytay Doctors Logo" className="h-16 sm:h-20 md:h-24 lg:h-28 w-auto object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-md" />
-              </div>
-              <div className="flex-1 flex justify-end items-center gap-4">
-                {view === 'home' && (
-                  <button onClick={() => setView('login')} className="text-sm font-bold text-slate-500 hover:text-blue-700 flex items-center gap-2 px-3 py-2 rounded-xl transition-all hover:bg-blue-50 shadow-sm bg-white border border-transparent hover:border-blue-200">
-                    <Lock className="w-4 h-4" /> <span className="hidden sm:inline">Staff Portal</span>
-                  </button>
-                )}
-                {view !== 'home' && (
-                  <button onClick={() => setView('home')} className="text-sm font-bold text-blue-800 hover:text-white hover:bg-blue-600 flex items-center gap-2 bg-blue-100 px-5 py-2.5 rounded-xl transition-all shadow-sm">
-                    <ArrowLeft className="w-5 h-5" /> HOME
-                  </button>
-                )}
-              </div>
-            </div>
-          </header>
+          {/* ALWAYS VISIBLE FLOATING THEME TOGGLE */}
+          <button 
+             onClick={toggleTheme} 
+             className="fixed top-4 right-4 z-50 p-3 sm:p-4 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-yellow-400 hover:scale-110 active:scale-95 transition-all no-print"
+             title="Toggle Night Mode"
+          >
+             {isDark ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+          </button>
 
-          <main className="max-w-5xl mx-auto w-full p-4 sm:p-6 lg:p-8 relative z-10 flex-grow">
+          {/* Header */}
+          {view !== 'survey' && (
+            <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm border-b-4 border-blue-600 dark:border-blue-500 sticky top-0 z-20 no-print transition-colors duration-300">
+              <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between relative min-h-[6rem] sm:min-h-[7rem]">
+                <div className="flex-1 flex justify-start items-center">
+                  {view === 'home' && (
+                    <button onClick={() => setView('qr')} className="text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-blue-700 dark:hover:text-blue-400 flex items-center gap-2 px-3 py-2 rounded-xl transition-all hover:bg-blue-50 dark:hover:bg-slate-800 border border-transparent dark:border-slate-700 shadow-sm bg-white dark:bg-slate-800">
+                      <QrCode className="w-5 h-5" /> <span className="hidden sm:inline">Show QR Sign</span>
+                    </button>
+                  )}
+                  {(view === 'admin' || view === 'dept') && isSyncing && (
+                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 flex items-center gap-2 animate-pulse bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700"><RefreshCw className="w-3 h-3 animate-spin"/> Syncing DB</span>
+                  )}
+                </div>
+                <div className="flex-1 flex justify-center cursor-pointer group" title="Reload System" onClick={() => window.location.reload()}>
+                  {/* Solid white background applied to logo container when in dark mode to ensure absolute visibility */}
+                  <div className="bg-white/80 dark:bg-white px-4 sm:px-6 py-2 rounded-2xl shadow-sm transition-colors duration-300 flex items-center justify-center">
+                    <img src={LOGO_URL} alt="Taytay Doctors Logo" className="h-16 sm:h-20 md:h-24 lg:h-28 w-auto object-contain transition-all duration-300 group-hover:scale-110 drop-shadow-sm" />
+                  </div>
+                </div>
+                <div className="flex-1 flex justify-end items-center gap-4 pr-16 sm:pr-20"> 
+                  {view === 'home' && (
+                    <button onClick={() => setView('login')} className="text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-blue-700 dark:hover:text-blue-400 flex items-center gap-2 px-3 py-2 rounded-xl transition-all hover:bg-blue-50 dark:hover:bg-slate-800 shadow-sm bg-white dark:bg-slate-800 border border-transparent dark:border-slate-700">
+                      <Lock className="w-4 h-4" /> <span className="hidden lg:inline">Staff Portal</span>
+                    </button>
+                  )}
+                  {view !== 'home' && (
+                    <button onClick={() => setView('home')} className="text-sm font-bold text-blue-800 dark:text-blue-200 hover:text-white dark:hover:text-white hover:bg-blue-600 dark:hover:bg-blue-600 flex items-center gap-2 bg-blue-100 dark:bg-blue-900/50 px-5 py-2.5 rounded-xl transition-all shadow-sm">
+                      <ArrowLeft className="w-5 h-5" /> HOME
+                    </button>
+                  )}
+                </div>
+              </div>
+            </header>
+          )}
+
+          <main className={`max-w-5xl mx-auto w-full relative z-10 flex-grow transition-all duration-300 ${view === 'survey' ? 'p-0 sm:p-6 lg:p-8 mt-16 sm:mt-0' : 'p-4 sm:p-6 lg:p-8'}`}>
             {view === 'home' && <HomeView setView={setView} />}
-            {view === 'survey' && <PatientSurvey onSubmit={handleSurveySubmit} activeDepartments={activeDepartments} departments={departments} isSubmitting={isSubmitting} />}
+            {view === 'survey' && <PatientSurvey onSubmit={handleSurveySubmit} activeDepartments={activeDepartments} departments={departments} isSubmitting={isSubmitting} setView={setView} />}
+            
+            {/* RESTORED LOGIN AND DASHBOARD VIEWS */}
             {view === 'login' && <LoginSelectView setView={setView} setActiveDeptId={setActiveDeptId} departments={departments} />}
             {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} drillDown={drillDown} setDrillDown={setDrillDown} />}
             {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} />}
             {view === 'qr' && <QRGenerator />}
           </main>
 
-          <div className="fixed bottom-3 right-4 z-20 text-xs sm:text-sm font-bold text-slate-500/80 pointer-events-none tracking-widest no-print">
+          <div className="fixed bottom-3 left-4 z-20 text-xs sm:text-sm font-bold text-slate-500/80 dark:text-slate-400/50 pointer-events-none tracking-widest no-print">
             {FORM_CONTROL_NO}
           </div>
 
+          {/* RESTORED DRILL DOWN MODAL */}
           {drillDown && <DrillDownModal drillDown={drillDown} setDrillDown={setDrillDown} />}
+          
+          {/* NEW SUCCESS MODAL */}
+          {showSuccess && <SuccessModal onClose={handleCloseSuccess} />}
         </div>
       );
     }
@@ -266,12 +352,12 @@
     function HomeView({ setView }) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in zoom-in duration-500">
-          <div className="bg-white/95 backdrop-blur-sm p-8 sm:p-14 rounded-[2rem] shadow-2xl border border-white max-w-xl w-full text-center relative overflow-hidden">
+          <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md p-8 sm:p-14 rounded-[2rem] shadow-2xl border border-white/50 dark:border-slate-700/50 max-w-xl w-full text-center relative overflow-hidden transition-colors">
             <div className="relative z-10">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-800 text-white rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-blue-500/20 rotate-3 transform hover:rotate-0 transition-transform"><ClipboardList className="w-12 h-12 -rotate-3" /></div>
-              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mb-4 tracking-tight leading-snug">Patient Satisfaction Survey</h2>
-              <p className="text-slate-600 mb-10 font-medium text-lg leading-relaxed">We value your health and your opinion. Please take a moment to rate your experience so we can serve you better.</p>
-              <button onClick={() => setView('survey')} className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-5 px-6 rounded-2xl shadow-xl shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-3 text-xl tracking-wide group border border-blue-500">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-800 dark:from-blue-500 dark:to-indigo-700 text-white rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-blue-500/20 dark:shadow-blue-900/40 rotate-3 transform hover:rotate-0 transition-transform"><ClipboardList className="w-12 h-12 -rotate-3" /></div>
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-snug">Patient Satisfaction Survey</h2>
+              <p className="text-slate-600 dark:text-slate-300 mb-10 font-medium text-lg leading-relaxed">We value your health and your opinion. Please take a moment to rate your experience so we can serve you better.</p>
+              <button onClick={() => setView('survey')} className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 dark:from-blue-500 dark:to-indigo-600 dark:hover:from-blue-600 dark:hover:to-indigo-700 text-white font-bold py-5 px-6 rounded-2xl shadow-xl shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-3 text-xl tracking-wide group border border-blue-500 dark:border-blue-400">
                 Start Survey <ChevronRight className="w-7 h-7 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
@@ -280,192 +366,27 @@
       );
     }
 
-    // --- PATIENT SURVEY WIZARD ---
-    function PatientSurvey({ onSubmit, activeDepartments, departments, isSubmitting }) {
-      const availableDepartments = departments.filter(dept => activeDepartments[dept.id]);
-      
-      const [step, setStep] = useState(0);
-      const [surveyData, setSurveyData] = useState({ departments: {}, general: {} });
-      
-      const isIntakeStep = step === 0;
-      const isGeneralStep = step === availableDepartments.length + 1;
-      const currentDept = (!isIntakeStep && !isGeneralStep) ? availableDepartments[step - 1] : null;
-
-      const [currentAnswers, setCurrentAnswers] = useState({});
-      const [currentComment, setCurrentComment] = useState("");
-
-      useEffect(() => {
-        if (currentDept && surveyData.departments[currentDept.id]) {
-          setCurrentAnswers(surveyData.departments[currentDept.id].answers || {});
-          setCurrentComment(surveyData.departments[currentDept.id].comment || "");
-        } else { setCurrentAnswers({}); setCurrentComment(""); }
-      }, [step, currentDept, surveyData]);
-
-      const handleRating = (questionId, score) => setCurrentAnswers(prev => ({ ...prev, [questionId]: score }));
-
-      const handleIntakeSubmit = (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const intake = {};
-        INTAKE_QUESTIONS.forEach(q => intake[q.id] = formData.get(q.id) || "");
-        setSurveyData(prev => ({ ...prev, general: { ...prev.general, ...intake } }));
-        setStep(1); 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      };
-
-      const saveDepartmentAndProceed = (skipped = false) => {
-        if (currentDept) {
-          setSurveyData(prev => ({ 
-            ...prev, 
-            departments: { 
-              ...prev.departments, 
-              [currentDept.id]: { skipped, answers: skipped ? {} : currentAnswers, comment: skipped ? "" : currentComment } 
-            } 
-          }));
-        }
-        setStep(prev => prev + 1);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      };
-
-      const handleGeneralSubmit = (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const generalData = { ...surveyData.general };
-        GENERAL_QUESTIONS.forEach(q => generalData[q.id] = formData.get(q.id) || "");
-        onSubmit({ ...surveyData, general: generalData });
-      };
-
-      const answeredScores = Object.values(currentAnswers);
-      const lowestScore = answeredScores.length > 0 ? Math.min(...answeredScores) : null;
-      const needsImprovement = lowestScore !== null && lowestScore <= 2;
-      const progressPercent = (step / (availableDepartments.length + 1)) * 100;
-
-      if (isIntakeStep) {
-        return (
-          <div className="max-w-3xl mx-auto animate-in slide-in-from-right-8 duration-500 font-sans">
-            <div className="mb-6"><div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner"></div><p className="text-right text-sm text-slate-500 mt-2 font-bold uppercase tracking-wider bg-white/50 inline-block px-2 rounded float-right">Initial Details</p><div className="clear-both"></div></div>
-            <div className="bg-white/95 backdrop-blur-md rounded-[2rem] shadow-2xl overflow-hidden border border-white">
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-800 p-8 text-white text-center"><h2 className="text-3xl font-bold font-serif">Visit Details</h2><p className="text-blue-100 mt-2 text-lg">Please provide a few details about your visit before we begin.</p></div>
-              <form onSubmit={handleIntakeSubmit} className="p-6 sm:p-10 space-y-8">
-                {INTAKE_QUESTIONS.map((q) => (
-                  <div key={q.id} className="space-y-4 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                    <label className="block text-slate-800 font-bold text-lg leading-snug">
-                      {q.text} {q.required && <span className="text-red-500">*</span>}
-                    </label>
-                    {q.type === 'short_text' ? (
-                      <input type="text" name={q.id} required={q.required} defaultValue={surveyData.general[q.id] || ''} className="w-full border-2 border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none font-medium text-slate-700" placeholder="Type your answer here..." />
-                    ) : q.type === 'date' ? (
-                      <input type="date" name={q.id} required={q.required} defaultValue={surveyData.general[q.id] || ''} className="w-full border-2 border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none font-medium text-slate-700" />
-                    ) : null}
-                  </div>
-                ))}
-                <div className="pt-6 flex gap-4">
-                  <button type="submit" className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-xl">Continue to Survey <ChevronRight className="w-6 h-6" /></button>
-                </div>
-              </form>
-            </div>
-          </div>
-        );
-      }
-
-      if (isGeneralStep) {
-        return (
-          <div className="max-w-3xl mx-auto animate-in slide-in-from-right-8 duration-500 font-sans">
-            <div className="mb-6"><div className="h-3 w-full bg-blue-100 rounded-full overflow-hidden shadow-inner"><div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500" style={{ width: '100%' }}></div></div><p className="text-right text-sm text-blue-800 mt-2 font-bold uppercase tracking-wider bg-white/50 inline-block px-2 rounded float-right">Final Step</p><div className="clear-both"></div></div>
-            <div className="bg-white/95 backdrop-blur-md rounded-[2rem] shadow-2xl overflow-hidden border border-white">
-              <div className="bg-gradient-to-br from-indigo-700 to-blue-900 p-8 text-white text-center"><h2 className="text-3xl font-bold font-serif">Overall Experience</h2><p className="text-blue-100 mt-2 text-lg">Almost done! Help us understand the bigger picture.</p></div>
-              <form onSubmit={handleGeneralSubmit} className="p-6 sm:p-10 space-y-8">
-                {GENERAL_QUESTIONS.map((q) => (
-                  <div key={q.id} className="space-y-4 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                    <label className="block text-slate-800 font-bold text-lg leading-snug">
-                      {q.text} {q.required && <span className="text-red-500">*</span>}
-                    </label>
-                    {q.type === 'yesno' ? (
-                      <div className="flex gap-4">
-                        <label className="flex items-center justify-center gap-2 cursor-pointer bg-white hover:bg-blue-50 border-2 border-slate-200 py-4 px-6 rounded-xl flex-1 transition-all shadow-sm"><input type="radio" name={q.id} value="Yes" required={q.required} className="w-5 h-5 text-blue-600 accent-blue-600" /><span className="font-bold text-slate-700 text-lg">Yes</span></label>
-                        <label className="flex items-center justify-center gap-2 cursor-pointer bg-white hover:bg-slate-100 border-2 border-slate-200 py-4 px-6 rounded-xl flex-1 transition-all shadow-sm"><input type="radio" name={q.id} value="No" required={q.required} className="w-5 h-5 text-slate-600 accent-slate-600" /><span className="font-bold text-slate-700 text-lg">No</span></label>
-                      </div>
-                    ) : ( 
-                      <textarea name={q.id} rows={3} required={q.required} className="w-full border-2 border-slate-200 rounded-xl p-4 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none resize-none font-medium text-slate-700" placeholder="Type your answer here..."></textarea> 
-                    )}
-                  </div>
-                ))}
-                <div className="pt-6 flex gap-4">
-                  <button type="button" onClick={() => setStep(step - 1)} className="px-6 py-4 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors">BACK</button>
-                  <button type="submit" disabled={isSubmitting} className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-xl disabled:opacity-50">{isSubmitting ? 'Sending...' : 'Submit Survey'} <Send className="w-6 h-6" /></button>
-                </div>
-              </form>
-            </div>
-          </div>
-        );
-      }
-
+    // --- SUCCESS MODAL ---
+    function SuccessModal({ onClose }) {
       return (
-        <div className="max-w-3xl mx-auto animate-in fade-in duration-500 font-sans">
-          <div className="mb-8">
-            <div className="flex justify-between items-end mb-2"><span className="text-lg font-bold text-blue-900 bg-white/80 px-3 py-1 rounded-lg backdrop-blur-sm shadow-sm font-serif">{currentDept.title}</span><span className="text-xs font-bold text-indigo-800 bg-indigo-100/90 px-3 py-1 rounded-full backdrop-blur-sm shadow-sm">Step {step} of {availableDepartments.length}</span></div>
-            <div className="h-3 w-full bg-white/80 rounded-full overflow-hidden shadow-inner backdrop-blur-sm border border-slate-200"><div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500" style={{ width: `${progressPercent}%` }}></div></div>
-          </div>
-          <div className="bg-white/95 backdrop-blur-md rounded-[2rem] shadow-2xl overflow-hidden border border-white">
-            <div className="p-6 sm:p-10 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div><h2 className="text-2xl sm:text-3xl font-bold text-slate-900 font-serif">{currentDept.title.replace(/^\d+\.\s*/, '')}</h2><p className="text-slate-500 mt-1 font-medium">Please rate your experience.</p></div>
-              <button onClick={() => saveDepartmentAndProceed(true)} className="shrink-0 flex items-center justify-center gap-2 text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 py-2.5 px-5 rounded-xl font-bold transition-colors border border-slate-200 shadow-sm"><SkipForward className="w-4 h-4" /> Skip Department</button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-slate-800 p-8 sm:p-12 rounded-[2rem] shadow-2xl max-w-lg w-full text-center border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-500 transition-colors">
+            <div className="w-24 h-24 bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+              <Check className="w-12 h-12" />
             </div>
-            <div className="bg-slate-50 p-4 border-b border-slate-100 flex flex-wrap justify-center gap-6 text-sm font-bold text-slate-600">
-              <span className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold border border-blue-200">4</div> Excellent</span>
-              <span className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-bold border border-sky-200">3</div> Good</span>
-              <span className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center font-bold border border-yellow-200">2</div> Average</span>
-              <span className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center font-bold border border-red-200">1</div> Poor</span>
-            </div>
-            <div className="p-6 sm:p-10 space-y-10">
-              {currentDept.questions.map((q, idx) => (
-                <div key={q.id} className="space-y-4">
-                  <p className="text-xl font-bold text-slate-800 leading-snug"><span className="text-indigo-600 mr-2 opacity-50 font-serif">0{idx + 1}</span>{q.text}</p>
-                  <div className="grid grid-cols-4 gap-3 sm:gap-4">
-                    {[1, 2, 3, 4].reverse().map(score => {
-                      const isSelected = currentAnswers[q.id] === score;
-                      const getColors = (s) => {
-                        if (!isSelected) return 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50 shadow-sm';
-                        if (s === 4) return 'bg-blue-500 text-white border-blue-500 shadow-md scale-105';
-                        if (s === 3) return 'bg-sky-500 text-white border-sky-500 shadow-md scale-105';
-                        if (s === 2) return 'bg-yellow-500 text-white border-yellow-500 shadow-md scale-105';
-                        if (s === 1) return 'bg-red-500 text-white border-red-500 shadow-md scale-105';
-                      };
-                      return <button key={score} onClick={() => handleRating(q.id, score)} className={`py-4 rounded-xl border-2 font-black text-xl transition-all active:scale-95 ${getColors(score)}`}>{score}</button>;
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="bg-slate-50 p-6 sm:p-10 border-t border-slate-200">
-              {answeredScores.length > 0 ? (
-                <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
-                  {needsImprovement ? (
-                    <div className="space-y-3 bg-red-50 p-5 rounded-2xl border border-red-100">
-                      <label className="flex items-center gap-2 text-red-700 font-bold text-lg"><AlertTriangle className="w-6 h-6" /> Please tell us how we can improve:</label>
-                      <textarea value={currentComment} onChange={(e) => setCurrentComment(e.target.value)} className="w-full border-2 border-red-200 focus:border-red-500 rounded-xl p-4 outline-none resize-none bg-white" rows="2" placeholder="Your feedback is vital..."></textarea>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                      <label className="flex items-center gap-2 text-blue-700 font-bold text-lg"><MessageSquare className="w-6 h-6 text-blue-500" /> Any compliments or suggestions? (Optional)</label>
-                      <textarea value={currentComment} onChange={(e) => setCurrentComment(e.target.value)} className="w-full border-2 border-slate-200 focus:border-blue-500 rounded-xl p-4 outline-none resize-none bg-slate-50" rows="2" placeholder="Leave a shoutout, or just hit Next!"></textarea>
-                    </div>
-                  )}
-                  <div className="flex gap-4 pt-2">
-                     <button onClick={() => setStep(step - 1)} className="px-6 py-4 rounded-xl font-bold text-slate-500 bg-white border border-slate-200 shadow-sm hover:bg-slate-50">BACK</button>
-                     <button onClick={() => saveDepartmentAndProceed(false)} className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 text-xl tracking-wide ${needsImprovement ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                     {!needsImprovement ? <><ThumbsUp className="w-6 h-6"/> 👍 ALL GOOD! (NEXT)</> : <>CONTINUE <ChevronRight className="w-6 h-6"/></>}
-                    </button>
-                  </div>
-                </div>
-              ) : ( <div className="text-center text-slate-500 font-medium italic p-6 bg-white rounded-xl border border-slate-200 border-dashed">Please rate at least one item to continue, or tap "Skip Department".</div> )}
-            </div>
+            <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-4 font-serif">Thank You!</h3>
+            <p className="text-slate-600 dark:text-slate-300 text-lg mb-8 leading-relaxed">
+              Your response has been successfully submitted securely. We greatly appreciate your feedback in helping us improve our services at Taytay Doctors Multispecialty Hospital.
+            </p>
+            <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md active:scale-95 text-lg">
+              Return to Home
+            </button>
           </div>
         </div>
-      );
+      )
     }
 
-    // --- PORTAL LOGIN VIEW ---
+    // --- RESTORED: PORTAL LOGIN VIEW ---
     function LoginSelectView({ setView, setActiveDeptId, departments }) {
       const [selectedDept, setSelectedDept] = useState(departments[0].id);
       const [loginType, setLoginType] = useState(null); 
@@ -503,15 +424,15 @@
       if (loginType) {
          return (
            <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-300">
-             <div className="bg-white p-8 rounded-[2rem] shadow-xl max-w-md w-full border border-slate-100 relative">
-                <button onClick={() => {setLoginType(null); setPassword(''); setError('');}} className="absolute top-6 left-6 text-slate-400 hover:text-slate-600 transition-colors"><ArrowLeft className="w-6 h-6"/></button>
-                <div className="flex justify-center mb-4">{loginType === 'admin' ? <LayoutDashboard className="w-10 h-10 text-slate-700" /> : <BarChart className="w-10 h-10 text-blue-600" />}</div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-2 text-center">{loginType === 'admin' ? 'Master Admin' : departments.find(d=>d.id===selectedDept)?.title.replace(/^\d+\.\s*/, '')}</h2>
-                <p className="text-center text-slate-500 mb-8">Enter secure password to continue.</p>
+             <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl max-w-md w-full border border-slate-100 dark:border-slate-700 relative transition-colors">
+                <button onClick={() => {setLoginType(null); setPassword(''); setError('');}} className="absolute top-6 left-6 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><ArrowLeft className="w-6 h-6"/></button>
+                <div className="flex justify-center mb-4">{loginType === 'admin' ? <LayoutDashboard className="w-10 h-10 text-slate-700 dark:text-slate-300" /> : <BarChart className="w-10 h-10 text-blue-600 dark:text-blue-400" />}</div>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 text-center">{loginType === 'admin' ? 'Master Admin' : departments.find(d=>d.id===selectedDept)?.title}</h2>
+                <p className="text-center text-slate-500 dark:text-slate-400 mb-8">Enter secure password to continue.</p>
                 <form onSubmit={handleLogin} className="space-y-4">
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={isAuthenticating} className="w-full p-4 border-2 border-slate-200 rounded-xl outline-none focus:border-blue-500 font-sans text-lg disabled:opacity-50" placeholder="Enter Password" autoFocus />
-                  {error && <p className="text-red-500 text-sm mt-2 font-bold flex items-center gap-1"><AlertTriangle className="w-4 h-4"/>{error}</p>}
-                  <button type="submit" disabled={isAuthenticating} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-lg transition-colors active:scale-95 flex justify-center items-center gap-2 disabled:opacity-70">
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={isAuthenticating} className="w-full p-4 border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white rounded-xl outline-none focus:border-blue-500 font-sans text-lg disabled:opacity-50 transition-colors" placeholder="Enter Password" autoFocus />
+                  {error && <p className="text-red-500 dark:text-red-400 text-sm mt-2 font-bold flex items-center gap-1"><AlertTriangle className="w-4 h-4"/>{error}</p>}
+                  <button type="submit" disabled={isAuthenticating} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-lg transition-colors active:scale-95 flex justify-center items-center gap-2 disabled:opacity-70 shadow-md">
                     {isAuthenticating ? <><RefreshCw className="w-5 h-5 animate-spin" /> Verifying...</> : 'Unlock Portal'}
                   </button>
                 </form>
@@ -522,23 +443,23 @@
 
       return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-300">
-          <div className="bg-white p-8 sm:p-12 rounded-[2rem] shadow-xl max-w-2xl w-full border border-slate-100">
-            <h2 className="text-2xl font-bold text-slate-800 mb-8 text-center flex items-center justify-center gap-3"><Lock className="w-6 h-6 text-blue-600" /> Staff Access Portal</h2>
+          <div className="bg-white dark:bg-slate-800 p-8 sm:p-12 rounded-[2rem] shadow-xl max-w-2xl w-full border border-slate-100 dark:border-slate-700 transition-colors">
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-8 text-center flex items-center justify-center gap-3"><Lock className="w-6 h-6 text-blue-600 dark:text-blue-400" /> Staff Access Portal</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer group" onClick={() => setLoginType('admin')}>
-                <LayoutDashboard className="w-12 h-12 text-slate-700 mb-4 group-hover:scale-110 transition-transform" />
-                <h3 className="font-bold text-lg text-slate-800 mb-2">Main Administration</h3>
-                <p className="text-sm text-slate-500 mb-6">Access facility-wide scores, analytics, and edit departments.</p>
-                <button className="mt-auto w-full bg-slate-800 text-white font-bold py-3 px-4 rounded-xl">Enter Master Portal</button>
+              <div className="bg-slate-50 dark:bg-slate-900/50 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer group" onClick={() => setLoginType('admin')}>
+                <LayoutDashboard className="w-12 h-12 text-slate-700 dark:text-slate-300 mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-2">Main Administration</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Access facility-wide scores, analytics, and edit departments.</p>
+                <button className="mt-auto w-full bg-slate-800 dark:bg-slate-700 text-white font-bold py-3 px-4 rounded-xl shadow-sm">Enter Master Portal</button>
               </div>
-              <div className="bg-blue-50 p-8 rounded-2xl border border-blue-200 flex flex-col items-center text-center hover:shadow-md transition-shadow">
-                <BarChart className="w-12 h-12 text-blue-600 mb-4" />
-                <h3 className="font-bold text-lg text-blue-900 mb-2">Department Heads</h3>
-                <p className="text-sm text-blue-700/80 mb-6">View isolated reports and charts for your unit.</p>
-                <select className="w-full mb-4 p-3 rounded-xl border border-blue-300 bg-white font-medium outline-none focus:ring-2 focus:ring-blue-500" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
-                  {departments.map(d => <option key={d.id} value={d.id}>{d.title.replace(/^\d+\.\s*/, '')}</option>)}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-8 rounded-3xl border border-blue-200 dark:border-blue-800/50 flex flex-col items-center text-center hover:shadow-md transition-shadow">
+                <BarChart className="w-12 h-12 text-blue-600 dark:text-blue-400 mb-4" />
+                <h3 className="font-bold text-lg text-blue-900 dark:text-blue-300 mb-2">Department Heads</h3>
+                <p className="text-sm text-blue-700/80 dark:text-blue-400/80 mb-6">View isolated reports and charts for your unit.</p>
+                <select className="w-full mb-4 p-3 rounded-xl border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-colors" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
                 </select>
-                <button onClick={() => setLoginType('dept')} className="mt-auto w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors">View Dept Report</button>
+                <button onClick={() => setLoginType('dept')} className="mt-auto w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm">View Dept Report</button>
               </div>
             </div>
           </div>
@@ -546,15 +467,15 @@
       );
     }
 
-    // --- DRILL DOWN MODAL COMPONENT ---
+    // --- RESTORED: DRILL DOWN MODAL COMPONENT ---
     function DrillDownModal({ drillDown, setDrillDown }) {
       const { type, data, questionText, viewMonth } = drillDown;
       
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 no-print-bg">
-          <div className="bg-white rounded-[2rem] shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden print-modal-content print:h-auto print:max-h-none print:shadow-none print:rounded-none">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 no-print-bg">
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden print-modal-content print:h-auto print:max-h-none print:shadow-none print:rounded-none border border-slate-200 dark:border-slate-700 transition-colors">
             
-            <div className="bg-slate-900 p-6 flex justify-between items-center text-white shrink-0">
+            <div className="bg-slate-900 dark:bg-slate-950 p-6 flex justify-between items-center text-white shrink-0">
               <div>
                 <h3 className="font-bold text-xl font-serif">Detailed Insight</h3>
                 <p className="text-slate-400 text-sm mt-1">{questionText}</p>
@@ -565,23 +486,23 @@
               </div>
             </div>
 
-            <div className="p-8 overflow-y-auto print:overflow-visible font-sans">
+            <div className="p-8 overflow-y-auto custom-scrollbar print:overflow-visible font-sans bg-slate-50 dark:bg-slate-900 transition-colors">
               {type === 'general_question' && (
                  viewMonth ? (
                    <div className="space-y-6">
                       <div className="flex items-center gap-4 mb-6">
-                        <button onClick={() => setDrillDown({...drillDown, viewMonth: null})} className="text-slate-500 hover:text-slate-800 bg-slate-100 p-2 rounded-lg no-print"><ArrowLeft className="w-5 h-5"/></button>
-                        <h4 className="text-2xl font-black text-slate-800 font-serif">Responses for {viewMonth}</h4>
+                        <button onClick={() => setDrillDown({...drillDown, viewMonth: null})} className="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-slate-200 dark:bg-slate-800 p-2 rounded-lg no-print transition-colors"><ArrowLeft className="w-5 h-5"/></button>
+                        <h4 className="text-2xl font-black text-slate-800 dark:text-white font-serif">Responses for {viewMonth}</h4>
                       </div>
-                      {data.monthly[viewMonth].responses.length === 0 ? <p className="text-slate-500 italic">No detailed responses found.</p> : (
+                      {data.monthly[viewMonth].responses.length === 0 ? <p className="text-slate-500 dark:text-slate-400 italic">No detailed responses found.</p> : (
                         <div className="grid grid-cols-1 gap-4">
                           {data.monthly[viewMonth].responses.map((resp, i) => (
-                            <div key={i} className="bg-slate-50 p-5 rounded-xl border border-slate-200">
-                              <div className="text-xs text-slate-400 font-bold mb-2 uppercase">{new Date(resp.date).toLocaleString()}</div>
+                            <div key={i} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                              <div className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-2 uppercase">{new Date(resp.date).toLocaleString()}</div>
                               {resp.isText ? (
-                                <p className="text-slate-800 font-medium text-lg">"{resp.value}"</p>
+                                <p className="text-slate-800 dark:text-slate-200 font-medium text-lg">"{resp.value}"</p>
                               ) : (
-                                <div className={`inline-block px-4 py-2 rounded-lg font-black text-lg ${resp.value === 'Yes' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>{resp.value}</div>
+                                <div className={`inline-block px-4 py-2 rounded-lg font-black text-lg ${resp.value === 'Yes' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-300'}`}>{resp.value}</div>
                               )}
                             </div>
                           ))}
@@ -590,23 +511,23 @@
                    </div>
                  ) : (
                    <div>
-                      <h4 className="text-2xl font-black text-slate-800 font-serif mb-6">Monthly Breakdown</h4>
+                      <h4 className="text-2xl font-black text-slate-800 dark:text-white font-serif mb-6">Monthly Breakdown</h4>
                       <div className="space-y-4">
                         {Object.keys(data.monthly).sort().reverse().map(monthStr => {
                           const mData = data.monthly[monthStr];
                           return (
-                            <div key={monthStr} onClick={() => setDrillDown({...drillDown, viewMonth: monthStr})} className="bg-white border-2 border-slate-100 hover:border-blue-300 p-6 rounded-2xl cursor-pointer transition-colors shadow-sm group">
+                            <div key={monthStr} onClick={() => setDrillDown({...drillDown, viewMonth: monthStr})} className="bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 p-6 rounded-2xl cursor-pointer transition-colors shadow-sm group">
                               <div className="flex justify-between items-center">
-                                <span className="font-bold text-xl text-slate-700">{monthStr}</span>
-                                <span className="text-sm font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full group-hover:bg-blue-100 no-print">View Responses <ChevronRight className="w-4 h-4 inline" /></span>
+                                <span className="font-bold text-xl text-slate-700 dark:text-slate-200">{monthStr}</span>
+                                <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900/60 no-print transition-colors">View Responses <ChevronRight className="w-4 h-4 inline" /></span>
                               </div>
                               {!mData.isText && (
                                 <div className="flex gap-8 mt-4">
-                                  <div className="flex items-center gap-2 text-lg"><span className="w-4 h-4 rounded-full bg-blue-500 block"></span> <span className="font-bold">{mData.Yes || 0} Yes</span></div>
-                                  <div className="flex items-center gap-2 text-lg"><span className="w-4 h-4 rounded-full bg-slate-300 block"></span> <span className="font-bold text-slate-500">{mData.No || 0} No</span></div>
+                                  <div className="flex items-center gap-2 text-lg"><span className="w-4 h-4 rounded-full bg-blue-500 block shadow-inner"></span> <span className="font-bold dark:text-slate-300">{mData.Yes || 0} Yes</span></div>
+                                  <div className="flex items-center gap-2 text-lg"><span className="w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-600 block shadow-inner"></span> <span className="font-bold text-slate-500 dark:text-slate-400">{mData.No || 0} No</span></div>
                                 </div>
                               )}
-                              {mData.isText && <div className="mt-4 text-slate-500 font-medium">{mData.responses.length} written responses recorded.</div>}
+                              {mData.isText && <div className="mt-4 text-slate-500 dark:text-slate-400 font-medium">{mData.responses.length} written responses recorded.</div>}
                             </div>
                           )
                         })}
@@ -618,6 +539,238 @@
           </div>
         </div>
       )
+    }
+
+    // --- SINGLE PAGE PATIENT SURVEY OVERHAUL (EMOJIS) ---
+    function PatientSurvey({ onSubmit, activeDepartments, departments, isSubmitting, setView }) {
+      const availableDepartments = departments.filter(dept => activeDepartments[dept.id]);
+      
+      const [surveyData, setSurveyData] = useState({
+         general: {},
+         departments: availableDepartments.reduce((acc, dept) => ({
+           ...acc, 
+           [dept.id]: { skipped: true, answers: {}, comment: "", selectedServices: [] }
+         }), {})
+      });
+
+      const handleIntakeChange = (e) => {
+        setSurveyData(prev => ({ ...prev, general: { ...prev.general, [e.target.name]: e.target.value } }));
+      };
+
+      const handleRating = (deptId, qId, score) => {
+        setSurveyData(prev => ({
+          ...prev,
+          departments: {
+            ...prev.departments,
+            [deptId]: {
+              ...prev.departments[deptId],
+              skipped: false,
+              answers: { ...prev.departments[deptId].answers, [qId]: score }
+            }
+          }
+        }));
+      };
+
+      const handleComment = (deptId, text) => {
+        setSurveyData(prev => ({
+          ...prev,
+          departments: {
+            ...prev.departments,
+            [deptId]: { ...prev.departments[deptId], comment: text }
+          }
+        }));
+      };
+
+      const toggleService = (deptId, service) => {
+        setSurveyData(prev => {
+          const currentServices = prev.departments[deptId].selectedServices || [];
+          const newServices = currentServices.includes(service) 
+             ? currentServices.filter(s => s !== service) 
+             : [...currentServices, service];
+          return {
+             ...prev,
+             departments: {
+                ...prev.departments,
+                [deptId]: { ...prev.departments[deptId], selectedServices: newServices }
+             }
+          }
+        });
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        const cleanedData = { ...surveyData };
+        Object.keys(cleanedData.departments).forEach(deptId => {
+           if (Object.keys(cleanedData.departments[deptId].answers).length === 0) {
+              cleanedData.departments[deptId].skipped = true;
+           }
+        });
+        onSubmit(cleanedData);
+      };
+
+      return (
+        <div className="max-w-4xl mx-auto animate-in fade-in duration-500 font-sans">
+          
+          <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-10 pb-20">
+            
+            {/* INTAKE SECTION */}
+            <div className="bg-white/95 dark:bg-slate-800/95 sm:rounded-[2rem] shadow-xl overflow-hidden border-t-8 border-blue-600 dark:border-blue-500 sm:border sm:border-white/50 dark:sm:border-slate-700/50 backdrop-blur-md">
+              <div className="bg-blue-50 dark:bg-slate-900/50 p-6 sm:p-10 border-b border-blue-100 dark:border-slate-700 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-bold font-serif text-blue-900 dark:text-blue-300">Patient Details</h2>
+                  <p className="text-blue-700 dark:text-blue-400/80 mt-1">Please provide your visit information.</p>
+                </div>
+                <button type="button" onClick={() => setView('home')} className="text-sm font-bold text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white bg-white dark:bg-slate-800 px-4 py-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-2 transition-colors"><X className="w-4 h-4"/> Cancel</button>
+              </div>
+              <div className="p-6 sm:p-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+                {INTAKE_QUESTIONS.map((q) => (
+                  <div key={q.id} className={`space-y-3 ${q.id === 'date' ? 'md:col-span-2' : ''}`}>
+                    <label className="block text-slate-700 dark:text-slate-300 font-bold text-lg">{q.text} {q.required && <span className="text-red-500 dark:text-red-400">*</span>}</label>
+                    <input 
+                       type={q.type === 'date' ? 'date' : 'text'} 
+                       name={q.id} 
+                       required={q.required} 
+                       onChange={handleIntakeChange} 
+                       className="w-full border-2 border-slate-200 dark:border-slate-700 rounded-xl p-4 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-500 dark:focus:border-blue-500 outline-none font-medium text-slate-700 dark:text-white bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-900 transition-colors" 
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* DEPARTMENTS SECTION (SINGLE SCROLL) */}
+            <div className="px-4 sm:px-0 space-y-4 sm:space-y-8">
+              <div className="text-center py-6">
+                 <h2 className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-white font-serif mb-3">Rate Your Experience</h2>
+                 <p className="text-slate-500 dark:text-slate-400 text-lg">Tap the face that best describes your experience. <br className="hidden sm:block"/> <span className="font-bold text-blue-600 dark:text-blue-400">Skip any departments you did not visit.</span></p>
+              </div>
+
+              {availableDepartments.map((dept) => (
+                <div key={dept.id} className="bg-white dark:bg-slate-800 sm:rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transform transition-all hover:shadow-xl -mx-4 sm:mx-0">
+                  <div className="bg-slate-900 dark:bg-slate-950 text-white p-5 sm:p-6 font-bold text-xl flex items-center gap-3">
+                     <Star className="w-6 h-6 text-amber-400" /> {dept.title}
+                  </div>
+                  <div className="p-5 sm:p-8 space-y-8">
+                    
+                    {/* CHECKBOXES FOR SPECIFIC DEPARTMENTS */}
+                    {dept.type === 'checkbox' && (
+                      <div className="bg-blue-50/50 dark:bg-slate-900/50 p-6 rounded-2xl border border-blue-100 dark:border-slate-700">
+                        <p className="font-bold text-slate-700 dark:text-slate-300 mb-4 text-lg">Please tick/check all the services you have encountered:</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {dept.services.map(service => {
+                            const isChecked = surveyData.departments[dept.id].selectedServices.includes(service);
+                            return (
+                              <div key={service} onClick={() => toggleService(dept.id, service)} className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${isChecked ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-500'}`}>
+                                <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center shrink-0 transition-colors ${isChecked ? 'border-white bg-blue-500' : 'border-slate-300 dark:border-slate-500 bg-slate-50 dark:bg-slate-700'}`}>
+                                   {isChecked && <Check className="w-5 h-5 text-white" />}
+                                </div>
+                                <span className="font-bold text-lg">{service}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* QUESTIONS & EMOJIS */}
+                    {dept.questions.map((q) => {
+                      const ans = surveyData.departments[dept.id].answers[q.id];
+                      return (
+                        <div key={q.id} className="space-y-6">
+                          <p className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white leading-snug">{q.text}</p>
+                          <div className="flex justify-between sm:justify-start sm:gap-6">
+                            
+                            {/* HAPPY (3) */}
+                            <button type="button" onClick={() => handleRating(dept.id, q.id, 3)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 3 ? 'bg-green-500 border-green-500 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-green-200 dark:hover:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20'}`}>
+                              <span className="text-5xl sm:text-6xl drop-shadow-sm">😁</span>
+                              <span className="font-black tracking-wide text-sm sm:text-base">Happy</span>
+                            </button>
+
+                            {/* NEUTRAL (2) */}
+                            <button type="button" onClick={() => handleRating(dept.id, q.id, 2)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 2 ? 'bg-yellow-400 border-yellow-400 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-yellow-200 dark:hover:border-yellow-800 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'}`}>
+                              <span className="text-5xl sm:text-6xl drop-shadow-sm">😐</span>
+                              <span className="font-black tracking-wide text-sm sm:text-base">Neutral</span>
+                            </button>
+
+                            {/* SAD (1) */}
+                            <button type="button" onClick={() => handleRating(dept.id, q.id, 1)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 1 ? 'bg-red-500 border-red-500 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-red-200 dark:hover:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
+                              <span className="text-5xl sm:text-6xl drop-shadow-sm">😢</span>
+                              <span className="font-black tracking-wide text-sm sm:text-base">Sad</span>
+                            </button>
+
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* OPTIONAL COMMENT (Shown only if they rated) */}
+                    {Object.keys(surveyData.departments[dept.id].answers).length > 0 && (
+                      <div className="pt-4 border-t border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
+                        <textarea 
+                           onChange={(e) => handleComment(dept.id, e.target.value)} 
+                           className="w-full border-2 border-slate-200 dark:border-slate-700 focus:border-blue-400 dark:focus:border-blue-500 rounded-2xl p-4 sm:p-5 outline-none resize-none bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-900 text-slate-700 dark:text-white font-medium transition-colors" 
+                           rows="2" 
+                           placeholder={`Any comments or suggestions for ${dept.title}? (Optional)`}
+                        ></textarea>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* OVERALL EXPERIENCE (FINAL) */}
+            <div className="bg-slate-900 dark:bg-slate-950 text-white sm:rounded-[2rem] shadow-2xl overflow-hidden -mx-4 sm:mx-0 mt-12 border border-slate-800 dark:border-slate-800">
+              <div className="p-6 sm:p-10 border-b border-slate-800 text-center">
+                <h2 className="text-3xl sm:text-4xl font-black font-serif">Overall Experience</h2>
+                <p className="text-slate-400 mt-2 text-lg">Help us understand the bigger picture.</p>
+              </div>
+              <div className="p-6 sm:p-10 space-y-8 bg-slate-800/50 dark:bg-slate-900/50">
+                {GENERAL_QUESTIONS.map((q) => (
+                  <div key={q.id} className="space-y-4 bg-slate-900/80 p-6 rounded-2xl border border-slate-700">
+                    <label className="block text-white font-bold text-lg leading-snug">
+                      {q.text} {q.required && <span className="text-red-400">*</span>}
+                    </label>
+                    {q.type === 'yesno' ? (
+                      <div className="flex gap-4">
+                        <label className="flex items-center justify-center gap-2 cursor-pointer bg-slate-800 hover:bg-blue-900 border-2 border-slate-700 hover:border-blue-500 py-4 px-6 rounded-xl flex-1 transition-all shadow-sm"><input type="radio" name={q.id} value="Yes" required={q.required} onChange={handleIntakeChange} className="w-5 h-5 accent-blue-500" /><span className="font-bold text-white text-lg">Yes</span></label>
+                        <label className="flex items-center justify-center gap-2 cursor-pointer bg-slate-800 hover:bg-slate-700 border-2 border-slate-700 hover:border-slate-500 py-4 px-6 rounded-xl flex-1 transition-all shadow-sm"><input type="radio" name={q.id} value="No" required={q.required} onChange={handleIntakeChange} className="w-5 h-5 accent-slate-500" /><span className="font-bold text-white text-lg">No</span></label>
+                      </div>
+                    ) : q.type === 'compare' ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <label className="flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-800 hover:bg-green-900 border-2 border-slate-700 hover:border-green-500 p-4 rounded-xl transition-all shadow-sm group">
+                          <input type="radio" name={q.id} value="Superior" required={q.required} onChange={handleIntakeChange} className="w-5 h-5 accent-green-500 mb-2" />
+                          <span className="font-bold text-white text-lg">Superior</span>
+                        </label>
+                        <label className="flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-800 hover:bg-yellow-900 border-2 border-slate-700 hover:border-yellow-500 p-4 rounded-xl transition-all shadow-sm group">
+                          <input type="radio" name={q.id} value="At Par" required={q.required} onChange={handleIntakeChange} className="w-5 h-5 accent-yellow-500 mb-2" />
+                          <span className="font-bold text-white text-lg">At Par</span>
+                        </label>
+                        <label className="flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-800 hover:bg-red-900 border-2 border-slate-700 hover:border-red-500 p-4 rounded-xl transition-all shadow-sm group">
+                          <input type="radio" name={q.id} value="Inferior" required={q.required} onChange={handleIntakeChange} className="w-5 h-5 accent-red-500 mb-2" />
+                          <span className="font-bold text-white text-lg">Inferior</span>
+                        </label>
+                      </div>
+                    ) : ( 
+                      <textarea name={q.id} rows={3} required={q.required} onChange={handleIntakeChange} className="w-full border-2 border-slate-700 rounded-xl p-4 outline-none resize-none font-medium text-white bg-slate-800 focus:border-blue-500 focus:bg-slate-900 transition-colors" placeholder="Type your answer here..."></textarea> 
+                    )}
+                  </div>
+                ))}
+                
+                <div className="pt-8">
+                  <button type="submit" disabled={isSubmitting} className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-black py-6 px-6 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 text-2xl disabled:opacity-50 border border-blue-400">
+                     {isSubmitting ? 'Submitting securely...' : 'Submit Survey'} <Send className="w-8 h-8" />
+                  </button>
+                  <p className="text-center text-slate-500 mt-4 text-sm font-bold">Your responses are secure and confidential.</p>
+                </div>
+
+              </div>
+            </div>
+
+          </form>
+        </div>
+      );
     }
 
     // --- MASTER ADMIN DASHBOARD ---
@@ -667,13 +820,11 @@
 
         const genTallies = {};
         GENERAL_QUESTIONS.forEach(q => {
-          genTallies[q.id] = { id: q.id, text: q.text, type: q.type, overall: { Yes: 0, No: 0 }, monthly: {}, mostCritical: null };
+          genTallies[q.id] = { id: q.id, text: q.text, type: q.type, overall: { Yes: 0, No: 0 }, monthly: {} };
         });
-        const criticalRegex = /\b(bad|slow|poor|worse|rude|dirty|terrible|awful|unhelpful|unorganized|long wait|worst)\b/gi;
 
         let responsesThisMonthCount = 0;
         
-        // Structured Comments for advanced filtering
         const structuredComments = {}; 
         departments.forEach(d => structuredComments[d.id] = {});
         allMonthsKeys.forEach(mk => {
@@ -693,20 +844,16 @@
             GENERAL_QUESTIONS.forEach(q => {
               const ans = res.general[q.id];
               if (!ans) return;
-              if (!genTallies[q.id].monthly[resMonth]) genTallies[q.id].monthly[resMonth] = { Yes: 0, No: 0, responses: [], isText: q.type === 'text' || q.type === 'short_text' || q.type === 'date' };
+              if (!genTallies[q.id].monthly[resMonth]) genTallies[q.id].monthly[resMonth] = { Yes: 0, No: 0, responses: [], isText: q.type !== 'yesno' && q.type !== 'compare' };
 
-              if (q.type === 'yesno') {
-                genTallies[q.id].overall[ans]++;
-                genTallies[q.id].monthly[resMonth][ans]++;
+              if (q.type === 'yesno' || q.type === 'compare') {
+                if (q.type === 'yesno') {
+                   genTallies[q.id].overall[ans]++;
+                   genTallies[q.id].monthly[resMonth][ans]++;
+                }
                 genTallies[q.id].monthly[resMonth].responses.push({ date: res.timestamp, value: ans, isText: false });
               } else {
                  genTallies[q.id].monthly[resMonth].responses.push({ date: res.timestamp, value: ans, isText: true });
-                 const matchCount = (ans.match(criticalRegex) || []).length;
-                 if (matchCount > 0) {
-                   if (!genTallies[q.id].mostCritical || matchCount > genTallies[q.id].mostCritical.score) {
-                     genTallies[q.id].mostCritical = { text: ans, score: matchCount, date: res.timestamp };
-                   }
-                 }
               }
             });
           }
@@ -727,9 +874,9 @@
               const avgResScore = resCount > 0 ? (resScore/resCount) : 0;
               if (data.comment && data.comment.trim() !== '') {
                 allCommentsText += " " + data.comment;
-                const cmtObj = { text: data.comment, date: res.timestamp, score: avgResScore };
+                const cmtObj = { text: data.comment, date: res.timestamp, score: avgResScore, room: res.general?.room_number || 'Unknown' };
                 if (structuredComments[deptId] && structuredComments[deptId][resMonth]) {
-                   if (avgResScore >= 3.0) structuredComments[deptId][resMonth].positive.push(cmtObj);
+                   if (avgResScore >= 2.0) structuredComments[deptId][resMonth].positive.push(cmtObj);
                    else structuredComments[deptId][resMonth].negative.push(cmtObj);
                 }
                 if (Object.values(data.answers).includes(1)) {
@@ -740,7 +887,6 @@
           });
         });
 
-        // Compute Averages for Monthly Table
         const fullYearDeptData = departments.map(d => {
            const monthlyAverages = allMonthsKeys.map(mk => {
               const mStats = deptStats[d.id].monthly[mk];
@@ -749,27 +895,22 @@
            return { id: d.id, title: d.title, monthlyAverages, alerts: deptStats[d.id].alerts };
         });
 
-        const stopWords = ['the','and','was','for','that','this','with','not','very','but','are','you','they','were','from','have','had','has','our'];
-        const words = allCommentsText.toLowerCase().match(/\b[a-z]{4,}\b/g) || [];
-        const counts = {}; words.forEach(w => { if(!stopWords.includes(w)) counts[w] = (counts[w] || 0) + 1; });
-        const wordCloud = Object.keys(counts).map(word => ({text: word, value: counts[word]})).sort((a,b)=>b.value-a.value).slice(0, 15);
-
         const recRate = (genTallies['gen_5'].overall.Yes + genTallies['gen_5'].overall.No) > 0 
           ? Math.round((genTallies['gen_5'].overall.Yes / (genTallies['gen_5'].overall.Yes + genTallies['gen_5'].overall.No)) * 100) : 0;
 
-        const maxResponsesMonthly = Math.max(...Object.values(monthlyResponsesTally), 1); // Avoid division by zero
+        const maxResponsesMonthly = Math.max(...Object.values(monthlyResponsesTally), 1); 
 
         return { 
           responsesThisMonthCount, allMonthsKeys,
           overallAvg: totalQuestionsAnswered > 0 ? (totalScore / totalQuestionsAnswered).toFixed(2) : "0.00", 
-          recommendationRate: recRate, fullYearDeptData, wordCloud, genTallies, monthlyResponsesTally, maxResponsesMonthly, structuredComments
+          recommendationRate: recRate, fullYearDeptData, genTallies, monthlyResponsesTally, maxResponsesMonthly, structuredComments
         };
       }, [responses, departments, currentMonthKey]);
 
       const handleAddDepartment = (e) => {
         e.preventDefault(); if(!newDeptName.trim()) return;
         const newId = 'dept_' + Date.now();
-        setDepartments([...departments, { id: newId, title: `${departments.length + 1}. ${newDeptName.trim()}`, questions: [] }]);
+        setDepartments([...departments, { id: newId, title: newDeptName.trim(), type: 'standard', questions: [] }]);
         setActiveDepartments({...activeDepartments, [newId]: true}); setNewDeptName('');
       };
       
@@ -783,29 +924,29 @@
       const currentResponseRate = currentCensus > 0 ? ((analytics.responsesThisMonthCount / currentCensus) * 100).toFixed(1) : 0;
 
       return (
-        <div className="bg-white/95 backdrop-blur-md rounded-[2rem] shadow-2xl border border-white overflow-hidden min-h-[75vh] animate-in fade-in duration-500 font-sans print-dashboard relative">
-          <div className="bg-white text-slate-900 p-8 sm:p-12 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden shrink-0">
+        <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md sm:rounded-[2rem] shadow-2xl border border-white dark:border-slate-700/50 overflow-hidden min-h-[75vh] animate-in fade-in duration-500 font-sans print-dashboard relative">
+          <div className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white p-6 sm:p-12 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden shrink-0 transition-colors">
             <div className="relative z-10 w-full flex justify-between items-center">
               <div>
-                <h2 className="text-3xl font-black flex items-center gap-3 font-serif text-blue-900"><LayoutDashboard className="w-8 h-8 text-blue-600" /> Master Admin Portal</h2>
-                <p className="text-slate-500 mt-2 font-medium">Facility-wide analytics, trends, and configurations.</p>
+                <h2 className="text-2xl sm:text-3xl font-black flex items-center gap-3 font-serif text-blue-900 dark:text-blue-300"><LayoutDashboard className="w-8 h-8 text-blue-600 dark:text-blue-400 hidden sm:block" /> Master Admin Portal</h2>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Facility-wide analytics, trends, and configurations.</p>
               </div>
               <div className="text-right hidden sm:block">
                  <p className="text-slate-400 font-bold uppercase tracking-wider text-sm mb-1">Today's Date</p>
-                 <p className="text-lg font-black text-blue-800 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">{liveDate}</p>
+                 <p className="text-lg font-black text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-800">{liveDate}</p>
               </div>
             </div>
           </div>
 
-          <div className="flex border-b border-slate-200 px-6 sm:px-10 bg-slate-50/80 overflow-x-auto custom-scrollbar no-print shrink-0 pb-1">
+          <div className="flex border-b border-slate-200 dark:border-slate-700 px-4 sm:px-10 bg-slate-50/80 dark:bg-slate-900/80 overflow-x-auto custom-scrollbar no-print shrink-0 pb-1">
             {['overview', 'monthly report', 'critical alerts', 'comments & suggestions', 'settings'].map(tab => (
-              <button key={tab} onClick={()=>setActiveTab(tab)} className={`whitespace-nowrap py-5 px-5 font-bold text-sm sm:text-base border-b-4 transition-colors capitalize ${activeTab === tab ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-400 hover:text-slate-800'}`}>
+              <button key={tab} onClick={()=>setActiveTab(tab)} className={`whitespace-nowrap py-5 px-4 sm:px-6 font-bold text-sm sm:text-base border-b-4 transition-colors capitalize ${activeTab === tab ? 'border-blue-600 dark:border-blue-400 text-blue-800 dark:text-blue-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}>
                 {tab}
               </button>
             ))}
           </div>
 
-          <div className="p-6 sm:p-10">
+          <div className="p-4 sm:p-10">
             
             {/* 1. OVERVIEW TAB */}
             {activeTab === 'overview' && (
@@ -814,62 +955,77 @@
                 {/* Metric Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   {/* Editable Census Input */}
-                  <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:border-blue-300 transition-colors relative">
-                    <p className="text-slate-500 font-bold mb-2">Total Census (This Month)</p>
-                    <div className="flex items-end gap-3">
-                       <input 
+                  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-sm hover:border-blue-300 transition-colors relative flex flex-col justify-between">
+                    <div>
+                      <p className="text-slate-500 dark:text-slate-400 font-bold mb-4 uppercase tracking-wide text-sm">Total Census (This Month)</p>
+                      <input 
                           type="number" 
+                          min="0"
                           value={censusData[currentMonthKey] || ''} 
                           onChange={(e) => handleCensusChange(e.target.value)} 
-                          className="text-4xl font-black text-slate-800 w-full border-b-2 border-slate-100 focus:border-blue-500 outline-none pb-1 bg-transparent transition-colors" 
+                          className="text-4xl sm:text-5xl font-black text-slate-800 dark:text-white w-full border-b-2 border-slate-100 dark:border-slate-600 focus:border-blue-500 outline-none pb-2 bg-transparent transition-colors" 
                           placeholder="Enter amount..." 
-                       />
-                       <button onClick={handleCensusSave} disabled={isSavingCensus} className="mb-1 flex items-center gap-1 bg-blue-100 hover:bg-blue-200 text-blue-800 px-4 py-2 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 no-print">
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mt-6">
+                       <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Syncs to Database</p>
+                       <button onClick={handleCensusSave} disabled={isSavingCensus} className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/60 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-800 dark:text-blue-300 px-5 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 no-print shadow-sm">
                           {isSavingCensus ? <RefreshCw className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
-                          {isSavingCensus ? 'Saving...' : 'Save'}
+                          {isSavingCensus ? 'Saving...' : 'Save Data'}
                        </button>
                     </div>
-                    <p className="text-xs font-bold text-slate-400 mt-3 uppercase tracking-wide">Syncs to Database</p>
                   </div>
                   {/* Total Responses */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
-                    <p className="text-blue-800 font-bold">Total Responses (This Month)</p>
-                    <p className="text-5xl font-black text-blue-900 mt-2">{analytics.responsesThisMonthCount}</p>
-                    <p className="text-xs font-bold text-blue-600 mt-3 uppercase tracking-wide">Automated Count</p>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <p className="text-blue-800 dark:text-blue-400 font-bold mb-4 uppercase tracking-wide text-sm">Total Responses (This Month)</p>
+                      <p className="text-5xl sm:text-6xl font-black text-blue-900 dark:text-blue-200">{analytics.responsesThisMonthCount}</p>
+                    </div>
+                    <p className="text-xs font-bold text-blue-600 dark:text-blue-500 mt-6 uppercase tracking-wide">Automated Count</p>
                   </div>
-                  {/* Response Rate */}
-                  <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-6 shadow-sm">
-                    <p className="text-indigo-800 font-bold">Response Rate</p>
-                    <p className="text-5xl font-black text-indigo-900 mt-2">{currentResponseRate}%</p>
-                    <p className="text-xs font-bold text-indigo-600 mt-3 uppercase tracking-wide">Responses / Census</p>
+                  {/* Response Rate & Facility Avg */}
+                  <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                       <p className="text-indigo-800 dark:text-indigo-400 font-bold mb-4 uppercase tracking-wide text-sm">Facility Avg Score</p>
+                       <p className="text-5xl sm:text-6xl font-black text-indigo-900 dark:text-indigo-200">{analytics.overallAvg} <span className="text-2xl text-indigo-700 dark:text-indigo-500">/ 3.0</span></p>
+                    </div>
+                    <p className="text-xs font-bold text-indigo-600 dark:text-indigo-500 mt-6 uppercase tracking-wide">Combined average of all depts</p>
                   </div>
                 </div>
 
                 {/* 12 Month Trend Graph */}
-                <div className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm">
-                  <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2 font-serif"><BarChart3 className="w-6 h-6 text-blue-600" /> Survey Volume (Jan - Dec)</h3>
-                  <div className="flex items-end justify-between gap-2 h-64 border-b-2 border-slate-100 pb-2">
+                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem] shadow-sm">
+                  <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><BarChart3 className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Survey Volume (Jan - Dec)</h3>
+                  <div className="flex items-end justify-between gap-1 sm:gap-4 h-[400px] sm:h-[500px] border-b-4 border-slate-100 dark:border-slate-700 pb-2 relative">
                      {analytics.allMonthsKeys.map((mk, index) => {
                         const count = analytics.monthlyResponsesTally[mk];
                         const heightPct = analytics.maxResponsesMonthly > 0 ? (count / analytics.maxResponsesMonthly) * 100 : 0;
                         const isCurrent = mk === currentMonthKey;
+                        const mCensus = parseInt(censusData[mk]) || 0;
+                        const mRate = mCensus > 0 ? ((count / mCensus) * 100).toFixed(0) : 0;
+                        
                         return (
-                           <div key={mk} className="flex flex-col items-center flex-1 group">
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold text-slate-600 mb-2">{count}</div>
-                              <div className={`w-full max-w-[3rem] rounded-t-md transition-all duration-500 ${isCurrent ? 'bg-indigo-500' : 'bg-blue-400 hover:bg-blue-500'}`} style={{ height: `${heightPct}%`, minHeight: count > 0 ? '5%' : '2px' }}></div>
-                              <div className={`text-xs font-bold mt-3 ${isCurrent ? 'text-indigo-600' : 'text-slate-400'}`}>{ALL_MONTHS_LABELS[index]}</div>
+                           <div key={mk} className="flex flex-col items-center flex-1 h-full justify-end group">
+                              <div className={`transition-opacity flex flex-col items-center mb-3 ${count === 0 ? 'opacity-0' : 'opacity-100'}`}>
+                                 {mCensus > 0 && <span className={`text-[10px] sm:text-xs font-black px-2 py-1 rounded-full mb-1 shadow-sm ${isCurrent ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>{mRate}%</span>}
+                                 <span className={`text-base sm:text-xl font-black ${isCurrent ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>{count}</span>
+                              </div>
+                              <div className={`w-full max-w-[4rem] rounded-t-xl transition-all duration-1000 ${isCurrent ? 'bg-gradient-to-t from-indigo-500 to-indigo-400 shadow-lg' : 'bg-blue-400 dark:bg-blue-500 hover:bg-blue-500'}`} style={{ height: `${heightPct}%`, minHeight: count > 0 ? '5%' : '4px' }}></div>
+                              <div className={`text-xs sm:text-sm font-black mt-4 uppercase tracking-widest ${isCurrent ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`}>{ALL_MONTHS_LABELS[index]}</div>
                            </div>
                         )
                      })}
                   </div>
-                  <div className="mt-4 flex items-center justify-center gap-6 text-sm font-bold text-slate-500">
-                     <span className="flex items-center gap-2"><div className="w-3 h-3 bg-blue-400 rounded-full"></div> Past Months</span>
-                     <span className="flex items-center gap-2"><div className="w-3 h-3 bg-indigo-500 rounded-full"></div> Current Month</span>
+                  <div className="mt-8 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-sm font-bold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                     <span className="flex items-center gap-3"><div className="w-4 h-4 bg-blue-400 rounded-full shadow-inner"></div> Past Months</span>
+                     <span className="flex items-center gap-3"><div className="w-4 h-4 bg-indigo-500 rounded-full shadow-inner"></div> Current Month</span>
+                     <span className="flex items-center gap-3"><div className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded text-xs">XX%</div> Response Rate (Count / Census)</span>
                   </div>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 p-8 rounded-[2rem]">
-                   <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2 font-serif"><Star className="w-6 h-6 text-amber-500" /> Facility-Wide Insights</h3>
+                {/* Facility Insights */}
+                <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem]">
+                   <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><Star className="w-8 h-8 text-amber-500" /> General Satisfaction Insights</h3>
                    
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                      {GENERAL_QUESTIONS.filter(q => q.type === 'yesno').map(q => {
@@ -878,51 +1034,33 @@
                        const pctYes = total > 0 ? Math.round((tally.overall.Yes / total) * 100) : 0;
                        
                        return (
-                         <div key={q.id} onClick={() => setDrillDown({ type: 'general_question', data: tally, questionText: q.text })} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-400 cursor-pointer transition-all group flex flex-col justify-between">
-                           <p className="text-sm font-bold text-slate-600 mb-4 h-10 line-clamp-2">{q.text}</p>
+                         <div key={q.id} onClick={() => setDrillDown({ type: 'general_question', data: tally, questionText: q.text })} className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md cursor-pointer transition-all group flex flex-col justify-between">
+                           <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-6 h-10 line-clamp-2 leading-relaxed">{q.text}</p>
                            <div className="flex items-center justify-between">
-                             <div className="relative w-16 h-16 sm:w-20 sm:h-20 shrink-0">
+                             <div className="relative w-20 h-20 shrink-0">
                                <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90 drop-shadow-sm">
-                                 <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
-                                 <path className={`${pctYes >= 50 ? 'text-blue-500' : 'text-amber-500'} transition-all duration-1000 ease-out`} strokeDasharray={`${pctYes}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
+                                 <path className="text-slate-100 dark:text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
+                                 <path className={`${pctYes >= 50 ? 'text-blue-500' : 'text-amber-500'} transition-all duration-1000 ease-out`} strokeDasharray={`${pctYes}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
                                </svg>
                                <div className="absolute inset-0 flex items-center justify-center flex-col">
-                                 <span className="text-sm sm:text-base font-black text-slate-700">{pctYes}%</span>
+                                 <span className="text-lg font-black text-slate-700 dark:text-slate-200">{pctYes}%</span>
                                </div>
                              </div>
                              <div className="text-right flex-1 ml-4">
-                               <div className="flex items-center justify-end gap-2 mb-1">
-                                 <span className="text-sm font-black text-blue-600">{tally.overall.Yes}</span>
-                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Yes</span>
+                               <div className="flex items-center justify-end gap-2 mb-2">
+                                 <span className="text-lg font-black text-blue-600 dark:text-blue-400">{tally.overall.Yes}</span>
+                                 <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Yes</span>
                                </div>
                                <div className="flex items-center justify-end gap-2 mb-3">
-                                 <span className="text-sm font-black text-slate-500">{tally.overall.No}</span>
-                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">No</span>
+                                 <span className="text-lg font-black text-slate-500 dark:text-slate-400">{tally.overall.No}</span>
+                                 <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">No</span>
                                </div>
-                               <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 text-slate-400 group-hover:text-blue-600 no-print ml-auto"><ChevronRight className="w-5 h-5"/></div>
+                               <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-900/50 text-slate-400 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 no-print ml-auto transition-colors shadow-sm border border-slate-100 dark:border-slate-600"><ChevronRight className="w-5 h-5"/></div>
                              </div>
                            </div>
                          </div>
                        )
                      })}
-                   </div>
-
-                   <div onClick={() => setDrillDown({ type: 'general_question', data: analytics.genTallies['gen_3'], questionText: analytics.genTallies['gen_3'].text })} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-amber-400 cursor-pointer transition-all group">
-                      <div className="flex justify-between items-start mb-4">
-                        <p className="text-sm font-bold text-slate-600">{analytics.genTallies['gen_3'].text}</p>
-                        <span className="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1 rounded-full flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> AI Critical Highlight</span>
-                      </div>
-                      {analytics.genTallies['gen_3'].mostCritical ? (
-                        <div>
-                          <p className="text-slate-800 font-serif text-xl italic font-medium border-l-4 border-amber-400 pl-4 py-1">"{analytics.genTallies['gen_3'].mostCritical.text}"</p>
-                          <p className="text-xs text-slate-400 font-bold mt-4 uppercase flex items-center justify-between">
-                            {new Date(analytics.genTallies['gen_3'].mostCritical.date).toLocaleString()}
-                            <span className="text-blue-600 group-hover:underline no-print">Click to view all {Object.keys(analytics.genTallies['gen_3'].monthly).length} months &rarr;</span>
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-slate-400 italic">No critical comparisons found yet.</p>
-                      )}
                    </div>
                 </div>
               </div>
@@ -931,35 +1069,39 @@
             {/* 2. MONTHLY COMPARATIVE REPORT TAB */}
             {activeTab === 'monthly report' && (
                <div className="space-y-8 animate-in slide-in-from-bottom-2">
-                 <div className="flex items-center justify-between mb-8">
+                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
                    <div>
-                     <h3 className="text-2xl font-bold text-slate-800 font-serif flex items-center gap-2"><CalendarDays className="w-6 h-6 text-blue-600" /> Full Year Department Averages</h3>
-                     <p className="text-slate-500 mt-1">Average performance scores grouped by month.</p>
+                     <h3 className="text-3xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-3"><CalendarDays className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Full Year Department Averages</h3>
+                     <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Average performance scores grouped by month (Max 3.0).</p>
                    </div>
-                   <button onClick={() => window.print()} className="bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 no-print font-sans"><Printer className="w-5 h-5" /> Print Table</button>
+                   <button onClick={() => window.print()} className="bg-slate-800 dark:bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-blue-700 shadow-md no-print font-sans"><Printer className="w-5 h-5" /> Print Table</button>
                  </div>
 
-                 <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-x-auto">
-                   <table className="w-full text-left border-collapse min-w-[1000px]">
-                     <thead>
-                       <tr className="bg-slate-900 text-white font-bold text-sm">
-                         <th className="p-4 border-b border-slate-700 sticky left-0 bg-slate-900 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]">Department</th>
-                         {ALL_MONTHS_LABELS.map(label => <th key={label} className="p-4 border-b border-slate-700 text-center w-16">{label}</th>)}
-                       </tr>
-                     </thead>
-                     <tbody className="divide-y divide-slate-200 text-sm">
-                       {analytics.fullYearDeptData.map(dept => (
-                         <tr key={dept.id} className="hover:bg-slate-50 transition-colors group">
-                           <td className="p-4 font-bold text-slate-800 sticky left-0 bg-white group-hover:bg-slate-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{dept.title.replace(/^\d+\.\s*/, '')}</td>
-                           {dept.monthlyAverages.map((avg, i) => (
-                              <td key={i} className={`p-4 text-center font-black ${avg === '-' ? 'text-slate-300 font-normal' : parseFloat(avg) < 3.0 ? 'text-red-600 bg-red-50/50' : 'text-blue-700 bg-blue-50/50'}`}>
-                                 {avg}
-                              </td>
-                           ))}
+                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm overflow-hidden flex flex-col transition-colors">
+                   <div className="overflow-x-auto custom-scrollbar pb-2">
+                     <table className="w-full text-left border-collapse min-w-[1200px]">
+                       <thead>
+                         <tr className="bg-slate-900 dark:bg-slate-950 text-white font-bold text-sm tracking-wide uppercase">
+                           <th className="p-5 border-b border-slate-700 sticky left-0 bg-slate-900 dark:bg-slate-950 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.5)] w-64">Department Name</th>
+                           {ALL_MONTHS_LABELS.map(label => <th key={label} className="p-5 border-b border-slate-700 text-center w-24">{label}</th>)}
                          </tr>
-                       ))}
-                     </tbody>
-                   </table>
+                       </thead>
+                       <tbody className="text-sm font-medium">
+                         {analytics.fullYearDeptData.map((dept, index) => (
+                           <tr key={dept.id} className={`group transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/60'} hover:bg-blue-50/50 dark:hover:bg-blue-900/20`}>
+                             <td className={`p-5 font-bold text-slate-800 dark:text-white sticky left-0 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700' : 'bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700'}`}>
+                                {dept.title}
+                             </td>
+                             {dept.monthlyAverages.map((avg, i) => (
+                                <td key={i} className={`p-5 text-center font-black text-lg ${avg === '-' ? 'text-slate-300 dark:text-slate-600 font-normal' : parseFloat(avg) < 2.0 ? 'text-red-600 dark:text-red-400 bg-red-50/30 dark:bg-red-900/10' : 'text-blue-700 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/10'}`}>
+                                   {avg}
+                                </td>
+                             ))}
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
                  </div>
                </div>
             )}
@@ -967,19 +1109,25 @@
             {/* 3. CRITICAL ALERTS TAB */}
             {activeTab === 'critical alerts' && (
                <div className="space-y-6 animate-in slide-in-from-bottom-2">
-                 <div className="bg-red-50 border border-red-200 p-6 rounded-2xl mb-6">
-                   <h3 className="text-xl font-bold text-red-800 flex items-center gap-2"><AlertTriangle className="w-6 h-6"/> Attention Required</h3>
-                   <p className="text-red-700 mt-1">These responses contain at least one "Poor (1)" rating. Please review these immediately.</p>
+                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 p-8 rounded-3xl mb-8 shadow-sm">
+                   <h3 className="text-2xl font-black text-red-800 dark:text-red-400 flex items-center gap-3"><AlertTriangle className="w-8 h-8"/> Attention Required</h3>
+                   <p className="text-red-700 dark:text-red-300 mt-2 font-medium">These responses contain at least one "Sad (1)" rating. Please review these immediately.</p>
                  </div>
                  {analytics.fullYearDeptData.filter(d => d.alerts.length > 0).length === 0 ? (
-                   <div className="text-center py-12 text-slate-500 font-bold bg-slate-50 rounded-2xl border border-dashed border-slate-200">No critical alerts detected!</div>
+                   <div className="text-center py-16 text-slate-500 font-bold text-lg bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700">No critical alerts detected! Everything looks great.</div>
                  ) : (
                    analytics.fullYearDeptData.filter(d => d.alerts.length > 0).map(dept => (
-                     <div key={dept.id} className="border-2 border-red-100 rounded-2xl overflow-hidden shadow-sm">
-                       <div className="bg-red-50/50 p-4 px-6 font-bold text-red-900 border-b border-red-100">{dept.title.replace(/^\d+\.\s*/, '')}</div>
-                       <div className="divide-y divide-red-50">
+                     <div key={dept.id} className="border-2 border-red-100 dark:border-red-900/50 rounded-3xl overflow-hidden shadow-sm mb-6 bg-white dark:bg-slate-800">
+                       <div className="bg-red-50/50 dark:bg-red-900/30 p-5 px-8 font-black text-xl text-red-900 dark:text-red-300 border-b border-red-100 dark:border-red-900/50">{dept.title}</div>
+                       <div className="divide-y divide-red-50 dark:divide-slate-700">
                          {dept.alerts.map((alert, i) => (
-                           <div key={i} className="p-6 bg-white"><p className="text-slate-800 font-medium text-lg">"{alert.text || 'No written comment.'}"</p><p className="text-sm text-slate-400 font-bold mt-2 uppercase">{new Date(alert.date).toLocaleString()}</p></div>
+                           <div key={i} className="p-8 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                              <p className="text-slate-800 dark:text-slate-200 font-medium text-lg leading-relaxed mb-4">"{alert.text || 'No written comment provided.'}"</p>
+                              <div className="flex flex-wrap items-center gap-4 text-sm">
+                                 <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">{new Date(alert.date).toLocaleDateString()} • {new Date(alert.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                 <span className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-lg">Room: <span className="text-blue-600 dark:text-blue-400">{alert.room}</span></span>
+                              </div>
+                           </div>
                          ))}
                        </div>
                      </div>
@@ -988,103 +1136,112 @@
                </div>
             )}
 
-            {/* 4. COMMENTS & SUGGESTIONS TAB (REVAMPED) */}
+            {/* 4. COMMENTS & SUGGESTIONS TAB */}
             {activeTab === 'comments & suggestions' && (
                <div className="space-y-8 animate-in slide-in-from-bottom-2">
                  
-                 {/* Filters */}
-                 <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row gap-4 no-print items-end">
+                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col sm:flex-row gap-6 no-print items-end transition-colors">
                     <div className="flex-1 w-full">
-                       <label className="block text-slate-500 font-bold text-sm mb-2 uppercase tracking-wide">Filter by Month</label>
-                       <select className="w-full p-3 rounded-xl border border-slate-300 bg-slate-50 font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white" value={selectedCommentMonth} onChange={e => setSelectedCommentMonth(e.target.value)}>
+                       <label className="block text-slate-500 dark:text-slate-400 font-black text-sm mb-3 uppercase tracking-widest">Filter by Month</label>
+                       <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-lg" value={selectedCommentMonth} onChange={e => setSelectedCommentMonth(e.target.value)}>
                           {analytics.allMonthsKeys.map((mk, i) => <option key={mk} value={mk}>{ALL_MONTHS_LABELS[i]} {mk.split('-')[0]}</option>)}
                        </select>
                     </div>
                     <div className="flex-1 w-full">
-                       <label className="block text-slate-500 font-bold text-sm mb-2 uppercase tracking-wide">Filter by Department</label>
-                       <select className="w-full p-3 rounded-xl border border-slate-300 bg-slate-50 font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white" value={selectedCommentDept} onChange={e => setSelectedCommentDept(e.target.value)}>
-                          {departments.map(d => <option key={d.id} value={d.id}>{d.title.replace(/^\d+\.\s*/, '')}</option>)}
+                       <label className="block text-slate-500 dark:text-slate-400 font-black text-sm mb-3 uppercase tracking-widest">Filter by Department</label>
+                       <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-lg" value={selectedCommentDept} onChange={e => setSelectedCommentDept(e.target.value)}>
+                          {departments.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
                        </select>
                     </div>
                  </div>
 
-                 {/* Results Side-by-Side */}
-                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+                    
                     {/* POSITIVE COLUMN */}
-                    <div className="border border-green-200 rounded-2xl bg-green-50/30 overflow-hidden shadow-sm flex flex-col">
-                       <div className="bg-green-100 text-green-800 p-4 font-bold flex items-center justify-between border-b border-green-200">
-                          <span className="flex items-center gap-2"><ThumbsUp className="w-5 h-5"/> Positive Feedback</span>
-                          <span className="bg-green-200 text-green-900 px-2 py-1 rounded-lg text-xs">Scores 3.0 - 4.0</span>
+                    <div className="border-2 border-green-200 dark:border-green-900/50 rounded-[2rem] bg-white dark:bg-slate-800 shadow-sm flex flex-col min-h-[500px] overflow-hidden transition-colors">
+                       <div className="bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 p-6 font-black text-xl flex items-center justify-between border-b-2 border-green-200 dark:border-green-900/50">
+                          <span className="flex items-center gap-3"><ThumbsUp className="w-7 h-7"/> Positive Feedback</span>
+                          <span className="bg-green-200 dark:bg-green-900/60 text-green-900 dark:text-green-300 px-3 py-1.5 rounded-xl text-sm shadow-sm tracking-wide uppercase">Happy / Neutral</span>
                        </div>
-                       <div className="p-4 flex-1 space-y-4">
+                       <div className="p-6 flex-1 space-y-6 bg-slate-50/50 dark:bg-slate-900/30">
                           {analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.positive?.length > 0 ? (
                              analytics.structuredComments[selectedCommentDept][selectedCommentMonth].positive.map((c, i) => (
-                               <div key={i} className="bg-white p-4 rounded-xl border border-green-100 shadow-sm">
-                                  <p className="text-slate-800 font-medium font-sans">"{c.text}"</p>
-                                  <div className="flex justify-between items-center mt-3">
-                                    <p className="text-xs text-slate-400 font-bold uppercase">{new Date(c.date).toLocaleDateString()}</p>
-                                    <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">Score: {c.score.toFixed(1)}</span>
+                               <div key={i} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                                  <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed font-sans mb-4">"{c.text}"</p>
+                                  <div className="flex flex-wrap justify-between items-center gap-4 border-t border-slate-100 dark:border-slate-700 pt-4">
+                                    <div className="flex flex-col gap-1">
+                                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleDateString()} • {new Date(c.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Room: <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">{c.room}</span></span>
+                                    </div>
+                                    <span className="text-sm font-black text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-3 py-1.5 rounded-xl shadow-sm border border-green-200 dark:border-green-800/50">Score: {c.score.toFixed(1)}/3.0</span>
                                   </div>
                                </div>
                              ))
                           ) : (
-                             <p className="text-slate-400 italic text-center py-10 font-medium">No positive comments recorded for this selection.</p>
+                             <div className="flex items-center justify-center h-full min-h-[300px]">
+                               <p className="text-slate-400 italic font-medium text-lg">No positive comments recorded.</p>
+                             </div>
                           )}
                        </div>
                     </div>
 
                     {/* NEGATIVE COLUMN */}
-                    <div className="border border-red-200 rounded-2xl bg-red-50/30 overflow-hidden shadow-sm flex flex-col">
-                       <div className="bg-red-100 text-red-800 p-4 font-bold flex items-center justify-between border-b border-red-200">
-                          <span className="flex items-center gap-2"><AlertTriangle className="w-5 h-5"/> Areas for Improvement</span>
-                          <span className="bg-red-200 text-red-900 px-2 py-1 rounded-lg text-xs">Scores Below 3.0</span>
+                    <div className="border-2 border-red-200 dark:border-red-900/50 rounded-[2rem] bg-white dark:bg-slate-800 shadow-sm flex flex-col min-h-[500px] overflow-hidden transition-colors">
+                       <div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 p-6 font-black text-xl flex items-center justify-between border-b-2 border-red-200 dark:border-red-900/50">
+                          <span className="flex items-center gap-3"><AlertTriangle className="w-7 h-7"/> Areas for Improvement</span>
+                          <span className="bg-red-200 dark:bg-red-900/60 text-red-900 dark:text-red-300 px-3 py-1.5 rounded-xl text-sm shadow-sm tracking-wide uppercase">Sad Score</span>
                        </div>
-                       <div className="p-4 flex-1 space-y-4">
+                       <div className="p-6 flex-1 space-y-6 bg-slate-50/50 dark:bg-slate-900/30">
                           {analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.negative?.length > 0 ? (
                              analytics.structuredComments[selectedCommentDept][selectedCommentMonth].negative.map((c, i) => (
-                               <div key={i} className="bg-white p-4 rounded-xl border border-red-100 shadow-sm">
-                                  <p className="text-slate-800 font-medium font-sans">"{c.text}"</p>
-                                  <div className="flex justify-between items-center mt-3">
-                                    <p className="text-xs text-slate-400 font-bold uppercase">{new Date(c.date).toLocaleDateString()}</p>
-                                    <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded">Score: {c.score.toFixed(1)}</span>
+                               <div key={i} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                                  <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed font-sans mb-4">"{c.text}"</p>
+                                  <div className="flex flex-wrap justify-between items-center gap-4 border-t border-slate-100 dark:border-slate-700 pt-4">
+                                    <div className="flex flex-col gap-1">
+                                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleDateString()} • {new Date(c.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Room: <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">{c.room}</span></span>
+                                    </div>
+                                    <span className="text-sm font-black text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-3 py-1.5 rounded-xl shadow-sm border border-red-200 dark:border-red-800/50">Score: {c.score.toFixed(1)}/3.0</span>
                                   </div>
                                </div>
                              ))
                           ) : (
-                             <p className="text-slate-400 italic text-center py-10 font-medium">No negative comments recorded for this selection.</p>
+                             <div className="flex items-center justify-center h-full min-h-[300px]">
+                               <p className="text-slate-400 italic font-medium text-lg">No negative comments recorded.</p>
+                             </div>
                           )}
                        </div>
                     </div>
-                 </div>
 
+                 </div>
                </div>
             )}
 
             {/* 5. SETTINGS & EDITOR TAB */}
             {activeTab === 'settings' && (
                <div className="animate-in slide-in-from-bottom-2 space-y-10 no-print">
-                 <form onSubmit={handleAddDepartment} className="bg-blue-50 border border-blue-200 p-6 rounded-2xl flex flex-col sm:flex-row gap-4 items-end shadow-sm">
-                   <div className="flex-1 w-full"><label className="block text-blue-900 font-bold mb-2">Create New Department</label><input type="text" value={newDeptName} onChange={(e)=>setNewDeptName(e.target.value)} placeholder="e.g. Outpatient Department" className="w-full p-4 rounded-xl border border-blue-200 outline-none focus:border-blue-500 font-medium" /></div>
-                   <button type="submit" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-4 rounded-xl flex items-center justify-center gap-2"><Plus className="w-5 h-5"/> Add Unit</button>
+                 <form onSubmit={handleAddDepartment} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-8 rounded-3xl flex flex-col sm:flex-row gap-6 items-end shadow-sm">
+                   <div className="flex-1 w-full"><label className="block text-blue-900 dark:text-blue-300 font-bold mb-3 text-lg">Create New Department</label><input type="text" value={newDeptName} onChange={(e)=>setNewDeptName(e.target.value)} placeholder="e.g. Outpatient Department" className="w-full p-5 rounded-2xl border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium text-lg" /></div>
+                   <button type="submit" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-10 py-5 rounded-2xl flex items-center justify-center gap-2 text-lg shadow-md transition-all active:scale-95"><Plus className="w-6 h-6"/> Add Unit</button>
                  </form>
                  <div className="space-y-6">
                    {departments.map(dept => (
-                     <div key={dept.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                       <div className="bg-slate-50 p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200">
-                          <span className="font-bold text-slate-800 text-lg flex items-center gap-2"><Edit2 className="w-4 h-4 text-slate-400" /> {dept.title}</span>
-                          <label className="flex items-center gap-3 cursor-pointer group">
-                            <span className="text-sm font-bold text-slate-500 group-hover:text-slate-800">Survey Visibility</span>
-                            <div className={`w-12 h-6 rounded-full p-1 transition-colors ${activeDepartments[dept.id] ? 'bg-blue-500' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full shadow-md transition-transform ${activeDepartments[dept.id] ? 'translate-x-6' : 'translate-x-0'}`}></div></div>
+                     <div key={dept.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
+                       <div className="bg-slate-50 dark:bg-slate-800/50 p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b border-slate-200 dark:border-slate-700">
+                          <span className="font-black text-slate-800 dark:text-white text-xl flex items-center gap-3"><Edit2 className="w-6 h-6 text-slate-400" /> {dept.title}</span>
+                          <label className="flex items-center gap-4 cursor-pointer group bg-white dark:bg-slate-700 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-sm hover:border-blue-300 dark:hover:border-blue-500 transition-colors">
+                            <span className="text-sm font-black text-slate-500 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-white uppercase tracking-wide">Survey Visibility</span>
+                            <div className={`w-14 h-7 rounded-full p-1 transition-colors shadow-inner ${activeDepartments[dept.id] ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}><div className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform ${activeDepartments[dept.id] ? 'translate-x-7' : 'translate-x-0'}`}></div></div>
                             <input type="checkbox" className="hidden" checked={activeDepartments[dept.id]} onChange={() => setActiveDepartments(prev => ({...prev, [dept.id]: !prev[dept.id]}))} />
                           </label>
                        </div>
-                       <div className="p-5 space-y-4">
-                         {dept.questions.length === 0 ? <p className="text-sm italic text-slate-400">No questions added yet.</p> : (
-                           <ul className="list-disc list-inside space-y-2">{dept.questions.map((q, i) => <li key={q.id} className="text-slate-700 text-sm font-medium"><span className="text-blue-600 mr-1 font-bold">Q{i+1}:</span> {q.text}</li>)}</ul>
+                       <div className="p-6 sm:p-8 space-y-4">
+                         {dept.questions.length === 0 ? <p className="text-lg italic text-slate-400">No questions added yet.</p> : (
+                           <ul className="list-disc list-inside space-y-3">{dept.questions.map((q, i) => <li key={q.id} className="text-slate-700 dark:text-slate-300 text-lg font-medium"><span className="text-blue-600 dark:text-blue-400 mr-2 font-black">Q{i+1}:</span> {q.text}</li>)}</ul>
                          )}
-                         <div className="flex gap-3 mt-4 border-t border-slate-100 pt-4">
-                           <input type="text" placeholder="Add a new question to this unit..." className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-blue-400 text-sm font-medium" value={newQuestions[dept.id] || ''} onChange={(e) => setNewQuestions({...newQuestions, [dept.id]: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion(dept.id)} />
-                           <button onClick={() => handleAddQuestion(dept.id)} className="bg-slate-800 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors">Add</button>
+                         <div className="flex flex-col sm:flex-row gap-4 mt-6 border-t border-slate-100 dark:border-slate-700 pt-6">
+                           <input type="text" placeholder="Add a new question to this unit..." className="flex-1 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white outline-none focus:border-blue-400 dark:focus:border-blue-500 text-base font-medium transition-colors" value={newQuestions[dept.id] || ''} onChange={(e) => setNewQuestions({...newQuestions, [dept.id]: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion(dept.id)} />
+                           <button onClick={() => handleAddQuestion(dept.id)} className="bg-slate-800 dark:bg-slate-700 text-white px-8 py-4 rounded-xl text-base font-bold hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors shadow-sm">Add Question</button>
                          </div>
                        </div>
                      </div>
@@ -1116,7 +1273,7 @@
             Object.values(dData.answers).forEach(score => { localScore += score; localCount++; months[monthKey].totalScore += score; months[monthKey].count += 1; });
             if (dData.comment) {
                const avg = localCount > 0 ? (localScore/localCount) : 0;
-               months[monthKey].comments.push({ text: dData.comment, date: res.timestamp, type: avg <= 2.5 ? 'improvement' : 'compliment' });
+               months[monthKey].comments.push({ text: dData.comment, date: res.timestamp, type: avg <= 2.0 ? 'improvement' : 'compliment', room: res.general?.room_number || 'Unknown' });
             }
           }
         });
@@ -1130,43 +1287,49 @@
       const latestMonth = monthlyData.length > 0 ? monthlyData[0] : null;
 
       return (
-        <div className="bg-white rounded-[2rem] shadow-xl border border-slate-200 p-8 sm:p-12 print-dashboard relative">
+        <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-700 p-6 sm:p-12 print-dashboard relative transition-colors">
           <div className="absolute inset-0 z-0 opacity-10 pointer-events-none hidden print:block" style={{backgroundImage: `url('${BACKGROUND_URL}')`, backgroundSize: 'cover', backgroundPosition: 'center'}} />
           <div className="relative z-10">
-            <div className="flex justify-between items-start mb-8 border-b border-slate-200 pb-6">
-              <div><h2 className="text-3xl font-bold text-slate-900 font-serif">{dept?.title.replace(/^\d+\.\s*/, '')} Report</h2><p className="text-slate-500 mt-1 font-sans">Monthly Performance Analytics</p></div>
-              <button onClick={() => window.print()} className="bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 no-print font-sans"><Printer className="w-5 h-5" /> Print Report</button>
+            <div className="flex justify-between items-start mb-8 border-b border-slate-200 dark:border-slate-700 pb-6">
+              <div><h2 className="text-3xl font-bold text-slate-900 dark:text-white font-serif">{dept?.title} Report</h2><p className="text-slate-500 dark:text-slate-400 mt-1 font-sans">Monthly Performance Analytics</p></div>
+              <button onClick={() => window.print()} className="bg-slate-800 dark:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-blue-700 no-print font-sans"><Printer className="w-5 h-5" /> Print Report</button>
             </div>
 
-            {monthlyData.length === 0 ? ( <div className="text-center py-16 text-slate-500 italic">No data recorded for this department yet.</div> ) : (
+            {monthlyData.length === 0 ? ( <div className="text-center py-16 text-slate-500 dark:text-slate-400 italic">No data recorded for this department yet.</div> ) : (
               <div className="space-y-12">
-                <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl w-full sm:w-1/2">
-                  <p className="text-blue-800 font-bold font-sans">Latest Monthly Average ({latestMonth.label})</p>
-                  <p className="text-5xl font-black text-blue-900 mt-2 font-sans">{latestMonth.avg} <span className="text-xl text-blue-700">/ 4.0</span></p>
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 p-6 rounded-3xl w-full sm:w-1/2 shadow-sm">
+                  <p className="text-blue-800 dark:text-blue-400 font-bold font-sans uppercase tracking-wide text-sm mb-2">Latest Monthly Average ({latestMonth.label})</p>
+                  <p className="text-5xl font-black text-blue-900 dark:text-blue-100 mt-2 font-sans">{latestMonth.avg} <span className="text-2xl text-blue-700 dark:text-blue-500">/ 3.0</span></p>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800 mb-6 font-serif">Historical Trend (Month over Month)</h3>
-                  <div className="flex items-end gap-4 h-64 border-b-2 border-slate-200 pb-2 font-sans">
+                  <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-6 font-serif">Historical Trend (Month over Month)</h3>
+                  <div className="flex items-end gap-4 h-64 border-b-4 border-slate-100 dark:border-slate-700 pb-2 font-sans">
                     {monthlyData.slice().reverse().map((m, i) => { 
-                      const heightPct = (parseFloat(m.avg) / 4.0) * 100;
+                      const heightPct = (parseFloat(m.avg) / 3.0) * 100;
                       return (
-                        <div key={i} className="flex flex-col items-center flex-1 group">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold mb-2 print:opacity-100 text-slate-600">{m.avg}</div>
-                          <div className={`w-full max-w-[4rem] rounded-t-md transition-all ${parseFloat(m.avg) < 3.0 ? 'bg-amber-400' : 'bg-blue-500'}`} style={{ height: `${heightPct}%`, minHeight: '10%' }}></div>
-                          <div className="text-xs font-bold text-slate-500 mt-3 rotate-45 sm:rotate-0 origin-left print:rotate-0 whitespace-nowrap">{m.label}</div>
+                        <div key={i} className="flex flex-col items-center flex-1 group h-full justify-end">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold mb-2 print:opacity-100 text-slate-600 dark:text-slate-300">{m.avg}</div>
+                          <div className={`w-full max-w-[4rem] rounded-t-xl transition-all ${parseFloat(m.avg) < 2.0 ? 'bg-amber-400' : 'bg-gradient-to-t from-blue-500 to-blue-400'}`} style={{ height: `${heightPct}%`, minHeight: '10%' }}></div>
+                          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-3 rotate-45 sm:rotate-0 origin-left print:rotate-0 whitespace-nowrap uppercase tracking-wider">{m.label}</div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800 mb-4 font-serif">Feedback from {latestMonth.label}</h3>
-                  {latestMonth.comments.length === 0 ? ( <p className="text-slate-500 italic">No written feedback this month.</p> ) : (
+                  <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-6 font-serif">Feedback from {latestMonth.label}</h3>
+                  {latestMonth.comments.length === 0 ? ( <p className="text-slate-500 dark:text-slate-400 italic text-lg">No written feedback this month.</p> ) : (
                     <div className="space-y-4">
                       {latestMonth.comments.map((c, i) => (
-                        <div key={i} className="p-5 bg-slate-50 rounded-xl border border-slate-200 flex gap-4">
-                           {c.type === 'improvement' ? <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" /> : <ThumbsUp className="w-5 h-5 text-blue-500 shrink-0" />}
-                           <div><p className="text-slate-800 font-medium font-sans">{c.text}</p><p className="text-xs text-slate-400 mt-2 font-sans">{new Date(c.date).toLocaleDateString()}</p></div>
+                        <div key={i} className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-4 shadow-sm hover:bg-white dark:hover:bg-slate-900 transition-colors">
+                           <div className="shrink-0">{c.type === 'improvement' ? <AlertTriangle className="w-8 h-8 text-amber-500" /> : <ThumbsUp className="w-8 h-8 text-blue-500" />}</div>
+                           <div className="w-full">
+                              <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed font-sans mb-4">"{c.text}"</p>
+                              <div className="flex flex-wrap gap-4 text-sm border-t border-slate-200 dark:border-slate-700 pt-3">
+                                 <span className="text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleString()}</span>
+                                 <span className="text-slate-700 dark:text-slate-300 font-bold bg-white dark:bg-slate-800 px-2 py-0.5 rounded shadow-sm border border-slate-100 dark:border-slate-700">Room: <span className="text-blue-600 dark:text-blue-400">{c.room}</span></span>
+                              </div>
+                           </div>
                         </div>
                       ))}
                     </div>
@@ -1186,20 +1349,22 @@
 
       return (
         <div className="space-y-6 animate-in slide-in-from-bottom-2">
-           <div className="flex justify-between items-center bg-white/90 backdrop-blur-sm p-6 rounded-2xl border border-slate-200 shadow-md no-print font-sans">
-             <div><h3 className="font-bold text-xl text-slate-900">QR Code Scanner</h3><p className="text-slate-500 text-sm mt-1">Have patients scan this screen directly, or print it to hang on a wall.</p></div>
+           <div className="flex justify-between items-center bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md no-print font-sans transition-colors">
+             <div><h3 className="font-bold text-xl text-slate-900 dark:text-white">QR Code Scanner</h3><p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Have patients scan this screen directly, or print it to hang on a wall.</p></div>
              <button onClick={() => window.print()} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 flex items-center gap-2"><Printer className="w-5 h-5" /> Print Poster</button>
            </div>
-           <div className="print-dashboard bg-white min-h-[100vh] w-full flex flex-col items-center justify-center p-8 relative flex sm:border border-slate-200 sm:rounded-3xl sm:min-h-[70vh] sm:py-16 sm:shadow-2xl overflow-hidden font-sans">
-              <div className="absolute inset-0 z-0 opacity-[0.15] pointer-events-none" style={{backgroundImage: `url('${BACKGROUND_URL}')`, backgroundSize: 'cover', backgroundPosition: 'center'}} />
+           <div className="print-dashboard bg-white dark:bg-slate-900 min-h-[100vh] w-full flex flex-col items-center justify-center p-8 relative flex sm:border border-slate-200 dark:border-slate-800 sm:rounded-3xl sm:min-h-[70vh] sm:py-16 sm:shadow-2xl overflow-hidden font-sans transition-colors">
+              <div className="absolute inset-0 z-0 opacity-[0.15] dark:opacity-10 pointer-events-none" style={{backgroundImage: `url('${BACKGROUND_URL}')`, backgroundSize: 'cover', backgroundPosition: 'center'}} />
               <div className="relative z-10 flex flex-col items-center text-center max-w-2xl">
-                <img src={LOGO_URL} alt="Taytay Doctors Logo" className="h-32 mb-8 object-contain drop-shadow-md" />
-                <h1 className="text-4xl sm:text-5xl font-black text-slate-900 mb-4 tracking-tight leading-tight uppercase font-serif">Patient Satisfaction Survey</h1>
-                <p className="text-xl sm:text-2xl text-slate-600 mb-10 font-medium">Scan the QR code below with your smartphone camera to rate your experience.</p>
+                <div className="bg-white px-8 py-4 rounded-3xl shadow-md mb-8 inline-block">
+                  <img src={LOGO_URL} alt="Taytay Doctors Logo" className="h-28 sm:h-32 w-auto object-contain drop-shadow-sm" />
+                </div>
+                <h1 className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-tight uppercase font-serif">Patient Satisfaction Survey</h1>
+                <p className="text-xl sm:text-2xl text-slate-600 dark:text-slate-300 mb-10 font-medium">Scan the QR code below with your smartphone camera to rate your experience.</p>
                 <div className="bg-white p-6 rounded-3xl shadow-xl border-4 border-blue-500 mb-10"><img src={qrUrl} alt="QR Code" className="w-64 h-64 sm:w-80 sm:h-80 object-contain" /></div>
-                <div className="text-slate-400 font-bold text-lg flex items-center gap-2"><span className="w-16 h-px bg-slate-300"></span> Thank You <span className="w-16 h-px bg-slate-300"></span></div>
+                <div className="text-slate-400 font-bold text-lg flex items-center gap-2"><span className="w-16 h-px bg-slate-300 dark:bg-slate-700"></span> Thank You <span className="w-16 h-px bg-slate-300 dark:bg-slate-700"></span></div>
               </div>
-              <div className="absolute bottom-8 right-8 text-sm font-bold text-slate-400 tracking-widest bg-white/80 px-2 py-1 rounded">{FORM_CONTROL_NO}</div>
+              <div className="absolute bottom-8 right-8 text-sm font-bold text-slate-400 tracking-widest bg-white/80 dark:bg-slate-800/80 px-2 py-1 rounded">{FORM_CONTROL_NO}</div>
            </div>
         </div>
       );
