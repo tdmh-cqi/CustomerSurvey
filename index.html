@@ -944,7 +944,7 @@
         const deptStats = {};
         
         // Use flatDepartments to build the grids gracefully
-        flatDepartments.forEach(d => deptStats[d.id] = { comments: [], alerts: [], monthly: {} });
+        flatDepartments.forEach(d => deptStats[d.id] = { comments: [], monthly: {} });
         allMonthsKeys.forEach(mk => {
            flatDepartments.forEach(d => deptStats[d.id].monthly[mk] = { score: 0, count: 0 });
         });
@@ -1015,9 +1015,6 @@
                    if (avgResScore >= 2.0) structuredComments[deptId][resMonth].positive.push(cmtObj);
                    else structuredComments[deptId][resMonth].negative.push(cmtObj);
                 }
-                if (Object.values(data.answers).includes(1)) {
-                  deptStats[deptId].alerts.push(cmtObj);
-                }
               }
             }
           });
@@ -1030,7 +1027,7 @@
               const satPct = maxPossible > 0 ? Math.min(Math.round((mStats.score / maxPossible) * 100), 100) : '-';
               return satPct;
            });
-           return { id: d.id, title: d.title, monthlyAverages, alerts: deptStats[d.id].alerts, isSub: d.type === 'sub' };
+           return { id: d.id, title: d.title, monthlyAverages, isSub: d.type === 'sub' };
         });
 
         const recRate = (genTallies['gen_5'].overall.Yes + genTallies['gen_5'].overall.No) > 0 
@@ -1089,7 +1086,7 @@
           </div>
 
           <div className="flex border-b border-slate-200 dark:border-slate-700 px-4 sm:px-10 bg-slate-50/80 dark:bg-slate-900/80 overflow-x-auto custom-scrollbar no-print shrink-0 pb-1">
-            {['overview', 'monthly report', 'critical alerts', 'comments & suggestions', 'question configurations'].map(tab => (
+            {['overview', 'monthly report', 'comments & suggestions', 'question configurations'].map(tab => (
               <button key={tab} onClick={()=>setActiveTab(tab)} className={`whitespace-nowrap py-5 px-4 sm:px-6 font-bold text-sm sm:text-base border-b-4 transition-colors capitalize ${activeTab === tab ? 'border-blue-600 dark:border-blue-400 text-blue-800 dark:text-blue-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}>
                 {tab}
               </button>
@@ -1293,46 +1290,7 @@
                </div>
             )}
 
-            {/* 3. CRITICAL ALERTS TAB */}
-            {activeTab === 'critical alerts' && (
-               <div className="space-y-6 animate-in slide-in-from-bottom-2">
-                 <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800/50 p-8 rounded-3xl mb-8 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-                   <div>
-                     <h3 className="text-2xl font-black text-red-800 dark:text-red-400 flex items-center gap-3"><AlertTriangle className="w-8 h-8"/> Critical Alerts (Requires Action)</h3>
-                     <p className="text-red-700 dark:text-red-300 mt-2 font-medium">These responses contain at least one "Sad (1)" rating. Please review and coordinate with the respective department heads.</p>
-                   </div>
-                 </div>
-                 {analytics.fullYearDeptData.filter(d => d.alerts.length > 0).length === 0 ? (
-                   <div className="text-center py-16 text-slate-500 font-bold text-lg bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-3"><ThumbsUp className="w-12 h-12 text-slate-300 dark:text-slate-600"/> No critical alerts detected! Everything looks great.</div>
-                 ) : (
-                   analytics.fullYearDeptData.filter(d => d.alerts.length > 0).map(dept => (
-                     <div key={dept.id} className="border-2 border-red-100 dark:border-red-900/50 rounded-3xl overflow-hidden shadow-sm mb-6 bg-white dark:bg-slate-800 transition-colors">
-                       <div className="bg-red-50/80 dark:bg-red-900/40 p-4 px-6 font-black text-lg text-red-900 dark:text-red-300 border-b border-red-100 dark:border-red-900/50 flex justify-between items-center">
-                          <span>{dept.title}</span>
-                          <span className="bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 text-xs px-3 py-1 rounded-full">{dept.alerts.length} Alert(s)</span>
-                       </div>
-                       <div className="divide-y divide-red-50 dark:divide-slate-700/50">
-                         {dept.alerts.map((alert, i) => (
-                           <div key={i} className="p-6 sm:p-8 hover:bg-red-50/30 dark:hover:bg-slate-700/30 transition-colors flex flex-col sm:flex-row gap-6 items-start">
-                              <div className="bg-red-100 dark:bg-red-900/50 p-3 rounded-2xl shrink-0"><AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" /></div>
-                              <div className="flex-1">
-                                <p className="text-slate-800 dark:text-slate-200 font-medium text-lg leading-relaxed mb-4">"{alert.text || 'Patient left a sad rating without providing a written comment.'}"</p>
-                                <div className="flex flex-wrap items-center gap-3 text-sm">
-                                   <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg">{new Date(alert.date).toLocaleDateString()} • {new Date(alert.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                   <span className="font-bold text-slate-700 dark:text-slate-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 px-3 py-1.5 rounded-lg">Room: <span className="text-blue-700 dark:text-blue-400">{alert.room}</span></span>
-                                </div>
-                              </div>
-                              <button className="text-xs font-bold text-slate-500 dark:text-slate-400 border-2 border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shrink-0">Mark Noted</button>
-                           </div>
-                         ))}
-                       </div>
-                     </div>
-                   ))
-                 )}
-               </div>
-            )}
-
-            {/* 4. COMMENTS & SUGGESTIONS TAB */}
+            {/* 3. COMMENTS & SUGGESTIONS TAB */}
             {activeTab === 'comments & suggestions' && (
                <div className="space-y-8 animate-in slide-in-from-bottom-2">
                  
@@ -1441,7 +1399,7 @@
                </div>
             )}
 
-            {/* 5. SETTINGS & EDITOR TAB */}
+            {/* 4. SETTINGS & EDITOR TAB */}
             {activeTab === 'question configurations' && (
                <div className="animate-in slide-in-from-bottom-2 space-y-10 no-print">
                  <form onSubmit={handleAddDepartment} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-8 rounded-3xl flex flex-col sm:flex-row gap-6 items-end shadow-sm">
