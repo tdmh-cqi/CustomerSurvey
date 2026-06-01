@@ -54,14 +54,14 @@
     // APPS SCRIPT WEB APP URL
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw93n00Ey6NoG92Nvcli_uAzeDINXBOL_i6El6txQvoYEp4pLFlQ5BSyxKUqUiI2DUCiQ/exec"; 
 
-    // DEFAULT DEPARTMENTS WITH "HOMES" ADDED
+    // DEFAULT DEPARTMENTS (Updated to handle Checkbox logic natively)
     const DEFAULT_DEPARTMENTS = [
       { id: 'admitting', title: 'Admitting Services', type: 'standard', questions: [{ id: 'adm_1', text: 'How was your experience with the Admitting Services and the staff(s)?' }] },
       { id: 'er', title: 'Emergency Room Services', type: 'standard', questions: [{ id: 'er_1', text: 'How was your experience with the E.R Services and the staff(s)?' }] },
       { id: 'nursing', title: 'Patient Care/Nursing Services', type: 'standard', questions: [{ id: 'nur_1', text: 'How was your Experience with our Nursing Services/Staff(s)?' }] },
-      { id: 'ancillary', title: 'Ancillary/Diagnostic Services', type: 'checkbox', services: ['Radiology', 'Pathology', 'Laboratory', 'Heart Station'], questions: [{ id: 'anc_1', text: 'How was your experience with our services and the staff(s)?' }] },
+      { id: 'ancillary', title: 'Ancillary/Diagnostic Services', type: 'checkbox', services: ['Radiology', 'Pathology', 'Laboratory', 'Heart Station'] },
       { id: 'dietary', title: 'Dietary Services', type: 'standard', questions: [{ id: 'die_1', text: 'How was your experience with our Hospital\'s Food?' }] },
-      { id: 'special', title: 'Special Services', type: 'checkbox', services: ['Operating Room', 'NICU', 'Hemodialysis', 'HOMES'], questions: [{ id: 'spc_1', text: 'How was your experience with the Service(s)?' }] },
+      { id: 'special', title: 'Special Services', type: 'checkbox', services: ['Operating Room', 'NICU', 'Hemodialysis', 'HOMES'] },
       { id: 'cashier', title: 'Cashier', type: 'standard', questions: [{ id: 'cas_1', text: 'How was your experience with Our Cashier Service/Staff(s)?' }] },
       { id: 'billing', title: 'Billing', type: 'standard', questions: [{ id: 'bil_1', text: 'How was your experience with our Billing Service/Staff(s)?' }] },
       { id: 'philhealth', title: 'Philhealth', type: 'standard', questions: [{ id: 'phi_1', text: 'How was your experience with the Philhealth Service/Staff(s)?' }] },
@@ -88,8 +88,22 @@
     const getMonthString = (dateObj) => `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
     const ALL_MONTHS_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     
-    // UPDATED VERSION KEY to force a strict cache reset
-    const VERSION_KEY = "tdmh_system_v7";
+    // DYNAMIC FLATTENER: Breaks out checkboxes into standalone departments for analytics & Google Sheets saving
+    const getFlatDepartments = (depts) => {
+        let flat = [];
+        depts.forEach(d => {
+            flat.push(d); // Push Parent (for historical tracking)
+            if (d.type === 'checkbox' && d.services) {
+                d.services.forEach(svc => {
+                    flat.push({ id: `${d.id}_${svc}`, title: `${d.title} (${svc})`, type: 'sub', parentId: d.id });
+                });
+            }
+        });
+        return flat;
+    };
+
+    // V8 triggers cache clear so the new sub-department structures apply cleanly.
+    const VERSION_KEY = "tdmh_system_v8";
 
     function App() {
       const [view, setView] = useState('home'); 
@@ -158,6 +172,8 @@
         try { return saved ? JSON.parse(saved) : defaultActive; } catch(e) { return defaultActive; }
       });
 
+      const flatDepartments = useMemo(() => getFlatDepartments(departments), [departments]);
+
       useEffect(() => localStorage.setItem('tdmh_departments', JSON.stringify(departments)), [departments]);
       useEffect(() => localStorage.setItem('tdmh_active_depts', JSON.stringify(activeDepartments)), [activeDepartments]);
 
@@ -204,8 +220,10 @@
         setIsSubmitting(true);
         const finalData = { ...surveyData, timestamp: new Date().toISOString(), id: Date.now().toString() };
         
+        // Populate titles so the backend creates tabs correctly
         Object.keys(finalData.departments).forEach(id => {
-          finalData.departments[id].title = departments.find(d => d.id === id)?.title;
+          const matched = flatDepartments.find(d => d.id === id);
+          if (matched) finalData.departments[id].title = matched.title;
         });
         
         setResponses(prev => {
@@ -214,14 +232,12 @@
           return newResponses;
         });
 
-        // OPTIMISTIC UI: Show success instantly, improving user experience by eliminating the 15-second wait time.
         setIsSubmitting(false); 
         setShowSuccess(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
         if (APPS_SCRIPT_URL) {
           try {
-            // Fire and forget background sync
             fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(finalData) }).catch(e => console.log("Background sync error:", e));
           } catch (error) { console.error("Error saving to Google Sheets:", error); }
         }
@@ -328,9 +344,9 @@
           <main className={`max-w-5xl mx-auto w-full relative z-10 flex-grow transition-all duration-300 ${view === 'survey' ? 'p-0 sm:p-6 lg:p-8 mt-16 sm:mt-0' : 'p-4 sm:p-6 lg:p-8'}`}>
             {view === 'home' && <HomeView setView={setView} />}
             {view === 'survey' && <PatientSurvey onSubmit={handleSurveySubmit} activeDepartments={activeDepartments} departments={departments} isSubmitting={isSubmitting} setView={setView} />}
-            {view === 'login' && <LoginSelectView setView={setView} setActiveDeptId={setActiveDeptId} departments={departments} />}
-            {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} drillDown={drillDown} setDrillDown={setDrillDown} />}
-            {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} />}
+            {view === 'login' && <LoginSelectView setView={setView} setActiveDeptId={setActiveDeptId} departments={departments} flatDepartments={flatDepartments} />}
+            {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} flatDepartments={flatDepartments} drillDown={drillDown} setDrillDown={setDrillDown} />}
+            {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} flatDepartments={flatDepartments} />}
             {view === 'qr' && <QRGenerator />}
           </main>
 
@@ -380,8 +396,8 @@
       )
     }
 
-    function LoginSelectView({ setView, setActiveDeptId, departments }) {
-      const [selectedDept, setSelectedDept] = useState(departments[0].id);
+    function LoginSelectView({ setView, setActiveDeptId, departments, flatDepartments }) {
+      const [selectedDept, setSelectedDept] = useState(flatDepartments[0].id);
       const [loginType, setLoginType] = useState(null); 
       const [password, setPassword] = useState('');
       const [error, setError] = useState('');
@@ -393,7 +409,7 @@
         setError('');
         
         const id = loginType === 'admin' ? 'admin' : selectedDept;
-        const name = loginType === 'admin' ? 'Master Admin' : departments.find(d => d.id === selectedDept)?.title;
+        const name = loginType === 'admin' ? 'Master Admin' : flatDepartments.find(d => d.id === selectedDept)?.title;
         
         try {
           const url = `${APPS_SCRIPT_URL}?action=login&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&password=${encodeURIComponent(password)}`;
@@ -420,7 +436,7 @@
              <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl max-w-md w-full border border-slate-100 dark:border-slate-700 relative transition-colors">
                 <button onClick={() => {setLoginType(null); setPassword(''); setError('');}} className="absolute top-6 left-6 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><ArrowLeft className="w-6 h-6"/></button>
                 <div className="flex justify-center mb-4">{loginType === 'admin' ? <LayoutDashboard className="w-10 h-10 text-slate-700 dark:text-slate-300" /> : <BarChart className="w-10 h-10 text-blue-600 dark:text-blue-400" />}</div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 text-center">{loginType === 'admin' ? 'Master Admin' : departments.find(d=>d.id===selectedDept)?.title}</h2>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 text-center">{loginType === 'admin' ? 'Master Admin' : flatDepartments.find(d=>d.id===selectedDept)?.title}</h2>
                 <p className="text-center text-slate-500 dark:text-slate-400 mb-8">Enter secure password to continue.</p>
                 <form onSubmit={handleLogin} className="space-y-4">
                   <input type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={isAuthenticating} className="w-full p-4 border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white rounded-xl outline-none focus:border-blue-500 font-sans text-lg disabled:opacity-50 transition-colors" placeholder="Enter Password" autoFocus />
@@ -450,7 +466,7 @@
                 <h3 className="font-bold text-lg text-blue-900 dark:text-blue-300 mb-2">Department Heads</h3>
                 <p className="text-sm text-blue-700/80 dark:text-blue-400/80 mb-6">View isolated reports and charts for your unit.</p>
                 <select className="w-full mb-4 p-3 rounded-xl border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-blue-500 transition-colors" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
-                  {departments.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
+                  {flatDepartments.map(d => <option key={d.id} value={d.id}>{d.type === 'sub' ? `— ${d.title}` : d.title}</option>)}
                 </select>
                 <button onClick={() => setLoginType('dept')} className="mt-auto w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm">View Dept Report</button>
               </div>
@@ -538,10 +554,16 @@
       
       const [surveyData, setSurveyData] = useState({
          general: {},
-         departments: availableDepartments.reduce((acc, dept) => ({
-           ...acc, 
-           [dept.id]: { skipped: true, answers: {}, comment: "", selectedServices: [] }
-         }), {})
+         departments: availableDepartments.reduce((acc, dept) => {
+            acc[dept.id] = {
+              skipped: true,
+              selectedServices: [],
+              answers: {},
+              comments: {},
+              comment: "" // Legacy fallback for standard depts
+            };
+            return acc;
+         }, {})
       });
 
       const handleIntakeChange = (e) => {
@@ -554,9 +576,9 @@
           departments: {
             ...prev.departments,
             [deptId]: {
-              ...(prev.departments[deptId] || {}),
+              ...prev.departments[deptId],
               skipped: false,
-              answers: { ...(prev.departments[deptId]?.answers || {}), [qId]: score }
+              answers: { ...prev.departments[deptId]?.answers, [qId]: score }
             }
           }
         }));
@@ -567,7 +589,34 @@
           ...prev,
           departments: {
             ...prev.departments,
-            [deptId]: { ...(prev.departments[deptId] || {}), comment: text }
+            [deptId]: { ...prev.departments[deptId], comment: text }
+          }
+        }));
+      };
+
+      const handleServiceRating = (deptId, service, score) => {
+        setSurveyData(prev => ({
+          ...prev,
+          departments: {
+             ...prev.departments,
+             [deptId]: {
+                ...prev.departments[deptId],
+                skipped: false,
+                answers: { ...prev.departments[deptId]?.answers, [service]: score }
+             }
+          }
+        }));
+      };
+
+      const handleServiceComment = (deptId, service, text) => {
+        setSurveyData(prev => ({
+          ...prev,
+          departments: {
+             ...prev.departments,
+             [deptId]: {
+                ...prev.departments[deptId],
+                comments: { ...prev.departments[deptId]?.comments, [service]: text }
+             }
           }
         }));
       };
@@ -576,13 +625,27 @@
         setSurveyData(prev => {
           const currentServices = prev.departments[deptId]?.selectedServices || [];
           const newServices = currentServices.includes(service) 
-             ? currentServices.filter(s => s !== service) 
-             : [...currentServices, service];
+              ? currentServices.filter(s => s !== service) 
+              : [...currentServices, service];
+          
+          // Clean up answers if un-checked
+          const newAnswers = { ...prev.departments[deptId]?.answers };
+          const newComments = { ...prev.departments[deptId]?.comments };
+          if (!newServices.includes(service)) {
+             delete newAnswers[service];
+             delete newComments[service];
+          }
+
           return {
              ...prev,
              departments: {
                 ...prev.departments,
-                [deptId]: { ...(prev.departments[deptId] || {}), selectedServices: newServices }
+                [deptId]: { 
+                   ...prev.departments[deptId], 
+                   selectedServices: newServices,
+                   answers: newAnswers,
+                   comments: newComments
+                }
              }
           }
         });
@@ -590,13 +653,50 @@
 
       const handleSubmit = (e) => {
         e.preventDefault();
-        const cleanedData = { ...surveyData };
-        Object.keys(cleanedData.departments).forEach(deptId => {
-           if (Object.keys(cleanedData.departments[deptId]?.answers || {}).length === 0) {
-              cleanedData.departments[deptId].skipped = true;
-           }
+        
+        // This Flattener seamlessly converts grouped checkbox services into autonomous Google Sheets rows!
+        const flattenedDepartments = {};
+
+        Object.keys(surveyData.departments).forEach(deptId => {
+            const dData = surveyData.departments[deptId];
+            const deptDef = departments.find(d => d.id === deptId);
+
+            if (deptDef && deptDef.type === 'checkbox') {
+                if (dData.selectedServices && dData.selectedServices.length > 0) {
+                    let hasRatings = false;
+                    dData.selectedServices.forEach(svc => {
+                        // Only save as a row if they actually provided an emoji rating
+                        if (dData.answers && dData.answers[svc]) {
+                            hasRatings = true;
+                            const virtualId = `${deptId}_${svc}`;
+                            flattenedDepartments[virtualId] = {
+                                title: `${deptDef.title} (${svc})`,
+                                skipped: false,
+                                selectedServices: [svc],
+                                answers: { "q1": dData.answers[svc] },
+                                comment: dData.comments ? dData.comments[svc] || "" : ""
+                            };
+                        }
+                    });
+                    
+                    if (!hasRatings) {
+                        flattenedDepartments[deptId] = { title: deptDef.title, skipped: true, selectedServices: dData.selectedServices };
+                    }
+                } else {
+                    flattenedDepartments[deptId] = { title: deptDef.title, skipped: true, selectedServices: [] };
+                }
+            } else {
+                if (Object.keys(dData.answers || {}).length === 0) {
+                    dData.skipped = true;
+                }
+                flattenedDepartments[deptId] = dData;
+            }
         });
-        onSubmit(cleanedData);
+
+        onSubmit({
+           general: surveyData.general,
+           departments: flattenedDepartments
+        });
       };
 
       return (
@@ -643,28 +743,68 @@
                   </div>
                   <div className="p-5 sm:p-8 space-y-8">
                     
-                    {/* CHECKBOXES FOR SPECIFIC DEPARTMENTS */}
+                    {/* INDIVIDUAL TICK BOX LOGIC */}
                     {dept.type === 'checkbox' && (
-                      <div className="bg-blue-50/50 dark:bg-slate-900/50 p-6 rounded-2xl border border-blue-100 dark:border-slate-700">
-                        <p className="font-bold text-slate-700 dark:text-slate-300 mb-4 text-lg">Please tick/check all the services you have encountered:</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {(dept.services || []).map(service => {
-                            const isChecked = surveyData.departments[dept.id]?.selectedServices?.includes(service);
+                      <div className="space-y-6">
+                         <div className="bg-blue-50/50 dark:bg-slate-900/50 p-6 rounded-2xl border border-blue-100 dark:border-slate-700">
+                           <p className="font-bold text-slate-700 dark:text-slate-300 mb-4 text-lg">Please tick/check all the services you have encountered:</p>
+                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                             {(dept.services || []).map(service => {
+                               const isChecked = surveyData.departments[dept.id]?.selectedServices?.includes(service);
+                               return (
+                                 <div key={service} onClick={() => toggleService(dept.id, service)} className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${isChecked ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-500'}`}>
+                                   <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center shrink-0 transition-colors ${isChecked ? 'border-white bg-blue-500' : 'border-slate-300 dark:border-slate-500 bg-slate-50 dark:bg-slate-700'}`}>
+                                      {isChecked && <Check className="w-5 h-5 text-white" />}
+                                   </div>
+                                   <span className="font-bold text-lg">{service}</span>
+                                 </div>
+                               )
+                             })}
+                           </div>
+                         </div>
+                         
+                         {/* Dynamic Render: One set of rating emojis per ticked service! */}
+                         {surveyData.departments[dept.id]?.selectedServices?.map(svc => {
+                            const ans = surveyData.departments[dept.id]?.answers?.[svc];
                             return (
-                              <div key={service} onClick={() => toggleService(dept.id, service)} className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${isChecked ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-500'}`}>
-                                <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center shrink-0 transition-colors ${isChecked ? 'border-white bg-blue-500' : 'border-slate-300 dark:border-slate-500 bg-slate-50 dark:bg-slate-700'}`}>
-                                   {isChecked && <Check className="w-5 h-5 text-white" />}
-                                </div>
-                                <span className="font-bold text-lg">{service}</span>
+                              <div key={svc} className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-in fade-in slide-in-from-top-4">
+                                 <p className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white leading-snug mb-6">How was your experience with <span className="text-blue-600 dark:text-blue-400">{svc}</span> and the staff(s)?</p>
+                                 <div className="flex justify-between sm:justify-start sm:gap-6">
+                                    {/* HAPPY (3) */}
+                                    <button type="button" onClick={() => handleServiceRating(dept.id, svc, 3)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 3 ? 'bg-green-500 border-green-500 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-green-200 dark:hover:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20'}`}>
+                                      <span className="text-5xl sm:text-6xl drop-shadow-sm">😁</span>
+                                      <span className="font-black tracking-wide text-sm sm:text-base">Happy</span>
+                                    </button>
+                                    {/* NEUTRAL (2) */}
+                                    <button type="button" onClick={() => handleServiceRating(dept.id, svc, 2)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 2 ? 'bg-yellow-400 border-yellow-400 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-yellow-200 dark:hover:border-yellow-800 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'}`}>
+                                      <span className="text-5xl sm:text-6xl drop-shadow-sm">😐</span>
+                                      <span className="font-black tracking-wide text-sm sm:text-base">Neutral</span>
+                                    </button>
+                                    {/* SAD (1) */}
+                                    <button type="button" onClick={() => handleServiceRating(dept.id, svc, 1)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 1 ? 'bg-red-500 border-red-500 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-red-200 dark:hover:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
+                                      <span className="text-5xl sm:text-6xl drop-shadow-sm">😢</span>
+                                      <span className="font-black tracking-wide text-sm sm:text-base">Sad</span>
+                                    </button>
+                                 </div>
+                                 {/* Specific comment box for this specific service */}
+                                 {ans && (
+                                   <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
+                                     <textarea 
+                                        onChange={(e) => handleServiceComment(dept.id, svc, e.target.value)} 
+                                        className="w-full border-2 border-slate-200 dark:border-slate-700 focus:border-blue-400 dark:focus:border-blue-500 rounded-2xl p-4 sm:p-5 outline-none resize-none bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-900 text-slate-700 dark:text-white font-medium transition-colors" 
+                                        rows="2" 
+                                        placeholder={`Any comments or suggestions for ${svc}? (Optional)`}
+                                     ></textarea>
+                                   </div>
+                                 )}
                               </div>
                             )
-                          })}
-                        </div>
+                         })}
                       </div>
                     )}
 
-                    {/* QUESTIONS & EMOJIS */}
-                    {(dept.questions || []).map((q) => {
+                    {/* STANDARD LOGIC */}
+                    {dept.type !== 'checkbox' && (dept.questions || []).map((q) => {
                       const ans = surveyData.departments[dept.id]?.answers?.[q.id];
                       return (
                         <div key={q.id} className="space-y-6">
@@ -694,8 +834,8 @@
                       )
                     })}
 
-                    {/* OPTIONAL COMMENT (Shown only if they rated) */}
-                    {Object.keys(surveyData.departments[dept.id]?.answers || {}).length > 0 && (
+                    {/* OPTIONAL COMMENT for Standard Departments */}
+                    {dept.type !== 'checkbox' && Object.keys(surveyData.departments[dept.id]?.answers || {}).length > 0 && (
                       <div className="pt-4 border-t border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
                         <textarea 
                            onChange={(e) => handleComment(dept.id, e.target.value)} 
@@ -764,12 +904,11 @@
       );
     }
 
-    function AdminDashboard({ responses, censusData, setCensusData, activeDepartments, setActiveDepartments, departments, setDepartments, drillDown, setDrillDown }) {
+    function AdminDashboard({ responses, censusData, setCensusData, activeDepartments, setActiveDepartments, departments, setDepartments, flatDepartments, drillDown, setDrillDown }) {
       const [activeTab, setActiveTab] = useState('overview'); 
       const [newDeptName, setNewDeptName] = useState('');
       const [newQuestions, setNewQuestions] = useState({});
       
-      // NEW STATE FOR DYNAMIC TICK BOXES
       const [newServices, setNewServices] = useState({});
 
       const [isSavingCensus, setIsSavingCensus] = useState(false);
@@ -803,9 +942,11 @@
 
         let totalScore = 0; let totalQuestionsAnswered = 0;
         const deptStats = {};
-        departments.forEach(d => deptStats[d.id] = { comments: [], alerts: [], monthly: {} });
+        
+        // Use flatDepartments to build the grids gracefully
+        flatDepartments.forEach(d => deptStats[d.id] = { comments: [], alerts: [], monthly: {} });
         allMonthsKeys.forEach(mk => {
-           departments.forEach(d => deptStats[d.id].monthly[mk] = { score: 0, count: 0 });
+           flatDepartments.forEach(d => deptStats[d.id].monthly[mk] = { score: 0, count: 0 });
         });
         
         let allCommentsText = "";
@@ -820,9 +961,9 @@
         let responsesThisMonthCount = 0;
         
         const structuredComments = {}; 
-        departments.forEach(d => structuredComments[d.id] = {});
+        flatDepartments.forEach(d => structuredComments[d.id] = {});
         allMonthsKeys.forEach(mk => {
-          departments.forEach(d => structuredComments[d.id][mk] = { positive: [], negative: [] });
+          flatDepartments.forEach(d => structuredComments[d.id][mk] = { positive: [], negative: [] });
         });
 
         responses.forEach(res => {
@@ -857,7 +998,6 @@
             if (!data.skipped && deptStats[deptId] && data.answers) {
               let resScore = 0; let resCount = 0;
               Object.values(data.answers).forEach(score => {
-                 // FORCE strict numerical addition to prevent math glitches (e.g., "3"+"3" = "33")
                  const numScore = Number(score) || 0; 
                  resScore += numScore; resCount += 1;
                  totalScore += numScore; totalQuestionsAnswered += 1;
@@ -883,16 +1023,14 @@
           });
         });
 
-        const fullYearDeptData = departments.map(d => {
+        const fullYearDeptData = flatDepartments.map(d => {
            const monthlyAverages = allMonthsKeys.map(mk => {
               const mStats = deptStats[d.id].monthly[mk];
-              // Satisfaction % formula: (Earned Points / Max Possible Points) * 100
               const maxPossible = mStats.count * 3;
-              // Bulletproof cap at 100% just in case corrupted historical data has scores > 3
               const satPct = maxPossible > 0 ? Math.min(Math.round((mStats.score / maxPossible) * 100), 100) : '-';
               return satPct;
            });
-           return { id: d.id, title: d.title, monthlyAverages, alerts: deptStats[d.id].alerts };
+           return { id: d.id, title: d.title, monthlyAverages, alerts: deptStats[d.id].alerts, isSub: d.type === 'sub' };
         });
 
         const recRate = (genTallies['gen_5'].overall.Yes + genTallies['gen_5'].overall.No) > 0 
@@ -900,7 +1038,6 @@
 
         const maxResponsesMonthly = Math.max(...Object.values(monthlyResponsesTally), 1); 
         
-        // Facility overall Satisfaction %
         const maxTotalPoints = totalQuestionsAnswered * 3;
         const overallSatPct = maxTotalPoints > 0 ? Math.min(Math.round((totalScore / maxTotalPoints) * 100), 100) : 0;
 
@@ -909,7 +1046,7 @@
           overallSatPct, 
           recommendationRate: recRate, fullYearDeptData, genTallies, monthlyResponsesTally, maxResponsesMonthly, structuredComments
         };
-      }, [responses, departments, currentMonthKey]);
+      }, [responses, flatDepartments, currentMonthKey]);
 
       const handleAddDepartment = (e) => {
         e.preventDefault(); if(!newDeptName.trim()) return;
@@ -924,7 +1061,6 @@
         setNewQuestions({...newQuestions, [deptId]: ''});
       };
 
-      // FUNCTION TO ADD NEW TICK BOXES
       const handleAddService = (deptId) => {
         const sText = newServices[deptId];
         if(!sText || !sText.trim()) return;
@@ -1115,7 +1251,6 @@
                         <strong className="text-slate-800 dark:text-slate-200">How to read this table:</strong> Scores are strictly represented as a <strong className="text-blue-700 dark:text-blue-400">Satisfaction Percentage</strong>. <br/>
                         Calculation: Every rating has a point value (<strong className="text-green-600">😁 Happy = 3 pts</strong>, <strong className="text-yellow-600">😐 Neutral = 2 pts</strong>, <strong className="text-red-600">😢 Sad = 1 pt</strong>). 
                         We divide the Total Points Earned by the Maximum Possible Points to get the percentage. 
-                        A 100% score means every single patient chose "Happy".
                      </p>
                    </div>
                    <button onClick={() => window.print()} className="bg-slate-800 dark:bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-blue-700 shadow-md no-print font-sans"><Printer className="w-5 h-5" /> Print Table</button>
@@ -1133,7 +1268,8 @@
                        <tbody className="text-sm font-medium">
                          {analytics.fullYearDeptData.map((dept, index) => (
                            <tr key={dept.id} className={`group transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/60'} hover:bg-blue-50/50 dark:hover:bg-blue-900/20`}>
-                             <td className={`p-5 font-bold text-slate-800 dark:text-white sticky left-0 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700' : 'bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700'}`}>
+                             <td className={`p-5 sticky left-0 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] transition-colors ${dept.isSub ? 'pl-10 text-slate-600 dark:text-slate-300' : 'font-bold text-slate-800 dark:text-white'} ${index % 2 === 0 ? 'bg-white dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700' : 'bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700'}`}>
+                                {dept.isSub && <span className="text-slate-400 dark:text-slate-500 mr-2">↳</span>}
                                 {dept.title}
                              </td>
                              {dept.monthlyAverages.map((satPct, i) => {
@@ -1211,7 +1347,7 @@
                        <label className="block text-slate-500 dark:text-slate-400 font-black text-sm mb-3 uppercase tracking-widest">Filter by Department</label>
                        <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-lg" value={selectedCommentDept} onChange={e => setSelectedCommentDept(e.target.value)}>
                           <option value="all">All Departments</option>
-                          {departments.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
+                          {flatDepartments.map(d => <option key={d.id} value={d.id}>{d.type === 'sub' ? `— ${d.title}` : d.title}</option>)}
                        </select>
                     </div>
                  </div>
@@ -1222,15 +1358,15 @@
                     let combinedNegative = [];
                     
                     if (selectedCommentDept === 'all') {
-                       departments.forEach(d => {
+                       flatDepartments.forEach(d => {
                           if (analytics.structuredComments[d.id]?.[selectedCommentMonth]) {
                              combinedPositive = combinedPositive.concat(analytics.structuredComments[d.id][selectedCommentMonth].positive.map(c => ({...c, deptName: d.title})));
                              combinedNegative = combinedNegative.concat(analytics.structuredComments[d.id][selectedCommentMonth].negative.map(c => ({...c, deptName: d.title})));
                           }
                        });
                     } else {
-                       combinedPositive = (analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.positive || []).map(c => ({...c, deptName: departments.find(d=>d.id===selectedCommentDept)?.title}));
-                       combinedNegative = (analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.negative || []).map(c => ({...c, deptName: departments.find(d=>d.id===selectedCommentDept)?.title}));
+                       combinedPositive = (analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.positive || []).map(c => ({...c, deptName: flatDepartments.find(d=>d.id===selectedCommentDept)?.title}));
+                       combinedNegative = (analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.negative || []).map(c => ({...c, deptName: flatDepartments.find(d=>d.id===selectedCommentDept)?.title}));
                     }
                     
                     combinedPositive.sort((a,b) => new Date(b.date) - new Date(a.date));
@@ -1350,13 +1486,17 @@
                          )}
 
                          {/* QUESTION LIST & EDITOR */}
-                         {dept.questions.length === 0 ? <p className="text-lg italic text-slate-400">No questions added yet.</p> : (
-                           <ul className="list-disc list-inside space-y-3">{dept.questions.map((q, i) => <li key={q.id} className="text-slate-700 dark:text-slate-300 text-lg font-medium"><span className="text-blue-600 dark:text-blue-400 mr-2 font-black">Q{i+1}:</span> {q.text}</li>)}</ul>
+                         {dept.type !== 'checkbox' && (
+                           <>
+                             {dept.questions.length === 0 ? <p className="text-lg italic text-slate-400">No questions added yet.</p> : (
+                               <ul className="list-disc list-inside space-y-3">{dept.questions.map((q, i) => <li key={q.id} className="text-slate-700 dark:text-slate-300 text-lg font-medium"><span className="text-blue-600 dark:text-blue-400 mr-2 font-black">Q{i+1}:</span> {q.text}</li>)}</ul>
+                             )}
+                             <div className="flex flex-col sm:flex-row gap-4 mt-6 border-t border-slate-100 dark:border-slate-700 pt-6">
+                               <input type="text" placeholder="Add a new survey question to this unit..." className="flex-1 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white outline-none focus:border-blue-400 dark:focus:border-blue-500 text-base font-medium transition-colors" value={newQuestions[dept.id] || ''} onChange={(e) => setNewQuestions({...newQuestions, [dept.id]: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion(dept.id)} />
+                               <button onClick={() => handleAddQuestion(dept.id)} className="bg-slate-800 dark:bg-slate-700 text-white px-8 py-4 rounded-xl text-base font-bold hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors shadow-sm">Add Question</button>
+                             </div>
+                           </>
                          )}
-                         <div className="flex flex-col sm:flex-row gap-4 mt-6 border-t border-slate-100 dark:border-slate-700 pt-6">
-                           <input type="text" placeholder="Add a new survey question to this unit..." className="flex-1 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white outline-none focus:border-blue-400 dark:focus:border-blue-500 text-base font-medium transition-colors" value={newQuestions[dept.id] || ''} onChange={(e) => setNewQuestions({...newQuestions, [dept.id]: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion(dept.id)} />
-                           <button onClick={() => handleAddQuestion(dept.id)} className="bg-slate-800 dark:bg-slate-700 text-white px-8 py-4 rounded-xl text-base font-bold hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors shadow-sm">Add Question</button>
-                         </div>
 
                        </div>
                      </div>
@@ -1369,8 +1509,8 @@
       );
     }
 
-    function DepartmentDashboard({ responses, deptId, departments }) {
-      const dept = departments.find(d => d.id === deptId);
+    function DepartmentDashboard({ responses, deptId, departments, flatDepartments }) {
+      const dept = flatDepartments.find(d => d.id === deptId);
       
       const currentMonthKey = getMonthString(new Date());
       const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
@@ -1379,7 +1519,6 @@
         const currentYear = new Date().getFullYear();
         const allMonthsKeys = Array.from({length: 12}, (_, i) => `${currentYear}-${String(i + 1).padStart(2, '0')}`);
         
-        // Ensure all 12 months are built by default
         const months = {}; 
         allMonthsKeys.forEach(mk => {
            const d = new Date(mk + "-01");
@@ -1387,23 +1526,44 @@
         });
 
         responses.forEach(res => {
-          const dData = res.departments?.[deptId];
-          if (dData && !dData.skipped && dData.answers) {
+          if (!res.departments) return;
+          
+          let localScore = 0; let localCount = 0;
+          let commentData = null;
+
+          // Support for Parent Aggregation AND strict Sub-Department checks
+          if (res.departments[deptId] && !res.departments[deptId].skipped && res.departments[deptId].answers) {
+             Object.values(res.departments[deptId].answers).forEach(score => {
+                localScore += Number(score) || 0; localCount++;
+             });
+             commentData = res.departments[deptId].comment;
+          }
+
+          // If looking at a parent checkbox department, aggregate its children
+          const origDef = departments.find(d => d.id === deptId);
+          if (origDef && origDef.type === 'checkbox') {
+             origDef.services.forEach(svc => {
+                const subId = `${deptId}_${svc}`;
+                if (res.departments[subId] && !res.departments[subId].skipped && res.departments[subId].answers) {
+                    Object.values(res.departments[subId].answers).forEach(score => {
+                        localScore += Number(score) || 0; localCount++;
+                    });
+                    if (res.departments[subId].comment) commentData = (commentData ? commentData + " | " : "") + res.departments[subId].comment;
+                }
+             });
+          }
+
+          if (localCount > 0) {
             const dateObj = new Date(res.timestamp);
             const monthKey = getMonthString(dateObj);
             
-            // Only aggregate if it matches the current year grid, otherwise ignore for this chart
             if (months[monthKey]) {
-                let localScore = 0; let localCount = 0;
-                Object.values(dData.answers).forEach(score => { 
-                   const numScore = Number(score) || 0;
-                   localScore += numScore; localCount++; 
-                   months[monthKey].totalScore += numScore; 
-                   months[monthKey].count += 1; 
-                });
-                if (dData.comment && dData.comment.trim() !== '') {
-                   const avg = localCount > 0 ? (localScore/localCount) : 0;
-                   const cObj = { text: dData.comment, date: res.timestamp, score: avg, room: res.general?.room_number || 'Unknown' };
+                months[monthKey].totalScore += localScore; 
+                months[monthKey].count += localCount; 
+                
+                if (commentData && commentData.trim() !== '') {
+                   const avg = (localScore/localCount);
+                   const cObj = { text: commentData, date: res.timestamp, score: avg, room: res.general?.room_number || 'Unknown' };
                    if (avg >= 2.0) months[monthKey].positive.push(cObj);
                    else months[monthKey].negative.push(cObj);
                 }
@@ -1411,15 +1571,13 @@
           }
         });
 
-        // Convert the object mapping back to a sorted array (Jan -> Dec)
         return allMonthsKeys.map(key => {
           const d = months[key];
           const maxPossible = d.count * 3;
-          // Bulletproof cap at 100% just in case corrupted historical data has scores > 3
           const satPct = maxPossible > 0 ? Math.min(Math.round((d.totalScore / maxPossible) * 100), 100) : 0;
           return { label: d.label, key: d.key, pct: satPct, count: d.count, positive: d.positive, negative: d.negative };
         }); 
-      }, [responses, deptId]);
+      }, [responses, deptId, departments]);
 
       const selectedMonthData = monthlyData.find(m => m.key === selectedMonth) || { positive: [], negative: [], label: '', pct: 0, count: 0 };
       const latestMonth = monthlyData.find(m => m.key === currentMonthKey) || { pct: 0, count: 0, label: 'N/A' };
@@ -1535,7 +1693,7 @@
                   </div>
                 </div>
 
-              </div>
+            </div>
           </div>
         </div>
       );
