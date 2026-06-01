@@ -54,13 +54,14 @@
     // APPS SCRIPT WEB APP URL
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw93n00Ey6NoG92Nvcli_uAzeDINXBOL_i6El6txQvoYEp4pLFlQ5BSyxKUqUiI2DUCiQ/exec"; 
 
+    // DEFAULT DEPARTMENTS WITH "HOMES" ADDED
     const DEFAULT_DEPARTMENTS = [
       { id: 'admitting', title: 'Admitting Services', type: 'standard', questions: [{ id: 'adm_1', text: 'How was your experience with the Admitting Services and the staff(s)?' }] },
       { id: 'er', title: 'Emergency Room Services', type: 'standard', questions: [{ id: 'er_1', text: 'How was your experience with the E.R Services and the staff(s)?' }] },
       { id: 'nursing', title: 'Patient Care/Nursing Services', type: 'standard', questions: [{ id: 'nur_1', text: 'How was your Experience with our Nursing Services/Staff(s)?' }] },
       { id: 'ancillary', title: 'Ancillary/Diagnostic Services', type: 'checkbox', services: ['Radiology', 'Pathology', 'Laboratory', 'Heart Station'], questions: [{ id: 'anc_1', text: 'How was your experience with our services and the staff(s)?' }] },
       { id: 'dietary', title: 'Dietary Services', type: 'standard', questions: [{ id: 'die_1', text: 'How was your experience with our Hospital\'s Food?' }] },
-      { id: 'special', title: 'Special Services', type: 'checkbox', services: ['Operating Room', 'NICU', 'Hemodialysis'], questions: [{ id: 'spc_1', text: 'How was your experience with the Service(s)?' }] },
+      { id: 'special', title: 'Special Services', type: 'checkbox', services: ['Operating Room', 'NICU', 'Hemodialysis', 'HOMES'], questions: [{ id: 'spc_1', text: 'How was your experience with the Service(s)?' }] },
       { id: 'cashier', title: 'Cashier', type: 'standard', questions: [{ id: 'cas_1', text: 'How was your experience with Our Cashier Service/Staff(s)?' }] },
       { id: 'billing', title: 'Billing', type: 'standard', questions: [{ id: 'bil_1', text: 'How was your experience with our Billing Service/Staff(s)?' }] },
       { id: 'philhealth', title: 'Philhealth', type: 'standard', questions: [{ id: 'phi_1', text: 'How was your experience with the Philhealth Service/Staff(s)?' }] },
@@ -86,17 +87,18 @@
 
     const getMonthString = (dateObj) => `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
     const ALL_MONTHS_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const VERSION_KEY = "tdmh_system_v5";
+    
+    // UPDATED VERSION KEY to force a strict cache reset
+    const VERSION_KEY = "tdmh_system_v7";
 
     function App() {
       const [view, setView] = useState('home'); 
       const [activeDeptId, setActiveDeptId] = useState(null); 
       const [isSubmitting, setIsSubmitting] = useState(false);
-      const [showSuccess, setShowSuccess] = useState(false); // NEW: State for Success Modal
+      const [showSuccess, setShowSuccess] = useState(false);
       const [isSyncing, setIsSyncing] = useState(false);
       const [drillDown, setDrillDown] = useState(null); 
       
-      // Theme State (Dark / Light)
       const [isDark, setIsDark] = useState(() => {
         const savedTheme = localStorage.getItem('tdmh_theme');
         return savedTheme === 'dark';
@@ -110,7 +112,6 @@
         }
       }, []);
 
-      // Apply Dark Mode Class to HTML Element
       useEffect(() => {
         const rootElement = document.documentElement;
         if (isDark) {
@@ -122,13 +123,11 @@
         }
       }, [isDark]);
 
-      // Handle the "Peeling/Swipe" Transition
       const toggleTheme = () => {
         if (!document.startViewTransition) {
           setIsDark(!isDark);
           return;
         }
-        
         document.startViewTransition(() => {
           setIsDark(prev => !prev);
         });
@@ -136,19 +135,27 @@
 
       const [responses, setResponses] = useState(() => {
         const saved = localStorage.getItem('tdmh_responses');
-        return saved ? JSON.parse(saved) : [];
+        try { return saved ? JSON.parse(saved) : []; } catch(e) { return []; }
       });
 
       const [censusData, setCensusData] = useState(() => {
         const saved = localStorage.getItem('tdmh_census');
-        return saved ? JSON.parse(saved) : {};
+        try { return saved ? JSON.parse(saved) : {}; } catch(e) { return {}; }
       });
 
       const [departments, setDepartments] = useState(() => {
-        const saved = localStorage.getItem('tdmh_departments'); return saved ? JSON.parse(saved) : DEFAULT_DEPARTMENTS;
+        const version = localStorage.getItem('tdmh_version');
+        if (version !== VERSION_KEY) return DEFAULT_DEPARTMENTS;
+        const saved = localStorage.getItem('tdmh_departments'); 
+        try { return saved ? JSON.parse(saved) : DEFAULT_DEPARTMENTS; } catch(e) { return DEFAULT_DEPARTMENTS; }
       });
+      
       const [activeDepartments, setActiveDepartments] = useState(() => {
-        const saved = localStorage.getItem('tdmh_active_depts'); return saved ? JSON.parse(saved) : departments.reduce((acc, dept) => ({ ...acc, [dept.id]: true }), {});
+        const defaultActive = DEFAULT_DEPARTMENTS.reduce((acc, dept) => ({ ...acc, [dept.id]: true }), {});
+        const version = localStorage.getItem('tdmh_version');
+        if (version !== VERSION_KEY) return defaultActive;
+        const saved = localStorage.getItem('tdmh_active_depts'); 
+        try { return saved ? JSON.parse(saved) : defaultActive; } catch(e) { return defaultActive; }
       });
 
       useEffect(() => localStorage.setItem('tdmh_departments', JSON.stringify(departments)), [departments]);
@@ -207,15 +214,17 @@
           return newResponses;
         });
 
+        // OPTIMISTIC UI: Show success instantly, improving user experience by eliminating the 15-second wait time.
+        setIsSubmitting(false); 
+        setShowSuccess(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
         if (APPS_SCRIPT_URL) {
           try {
-            await fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(finalData) });
+            // Fire and forget background sync
+            fetch(APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(finalData) }).catch(e => console.log("Background sync error:", e));
           } catch (error) { console.error("Error saving to Google Sheets:", error); }
         }
-        
-        setIsSubmitting(false); 
-        setShowSuccess(true); // Show professional success modal instead of abruptly switching
-        window.scrollTo({ top: 0, behavior: 'smooth' });
       };
 
       const handleCloseSuccess = () => {
@@ -237,18 +246,14 @@
             .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
             .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
             
-            /* VIEW TRANSITION ANIMATIONS (The Peeling/Swipe Effect) */
+            /* VIEW TRANSITION ANIMATIONS */
             ::view-transition-old(root),
             ::view-transition-new(root) {
               animation: none;
               mix-blend-mode: normal;
             }
-            ::view-transition-old(root) {
-              z-index: 1;
-            }
-            ::view-transition-new(root) {
-              z-index: 2;
-            }
+            ::view-transition-old(root) { z-index: 1; }
+            ::view-transition-new(root) { z-index: 2; }
             
             .dark::view-transition-new(root),
             :not(.dark)::view-transition-new(root) {
@@ -273,13 +278,11 @@
           {drillDown && <style>{`body { class: "printing-modal" }`}</style>}
           {!drillDown && <style>{`body { class: "" }`}</style>}
 
-          {/* BACKGROUND LAYER OVERHAUL */}
           <div className="fixed inset-0 z-0 pointer-events-none transition-colors duration-700">
              <div className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-700 ${isDark ? 'opacity-[0.15] mix-blend-luminosity' : 'opacity-20 mix-blend-multiply'}`} style={{ backgroundImage: `url('${BACKGROUND_URL}')` }} />
              <div className={`absolute inset-0 transition-opacity duration-700 ${isDark ? 'bg-blue-950/80 opacity-100' : 'bg-transparent opacity-0'}`} />
           </div>
           
-          {/* ALWAYS VISIBLE FLOATING THEME TOGGLE */}
           <button 
              onClick={toggleTheme} 
              className="fixed top-4 right-4 z-50 p-3 sm:p-4 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-yellow-400 hover:scale-110 active:scale-95 transition-all no-print"
@@ -288,7 +291,6 @@
              {isDark ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
           </button>
 
-          {/* Header */}
           {view !== 'survey' && (
             <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm border-b-4 border-blue-600 dark:border-blue-500 sticky top-0 z-20 no-print transition-colors duration-300">
               <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between relative min-h-[6rem] sm:min-h-[7rem]">
@@ -303,7 +305,6 @@
                   )}
                 </div>
                 <div className="flex-1 flex justify-center cursor-pointer group" title="Reload System" onClick={() => window.location.reload()}>
-                  {/* Solid white background applied to logo container when in dark mode to ensure absolute visibility */}
                   <div className="bg-white/80 dark:bg-white px-4 sm:px-6 py-2 rounded-2xl shadow-sm transition-colors duration-300 flex items-center justify-center">
                     <img src={LOGO_URL} alt="Taytay Doctors Logo" className="h-16 sm:h-20 md:h-24 lg:h-28 w-auto object-contain transition-all duration-300 group-hover:scale-110 drop-shadow-sm" />
                   </div>
@@ -327,8 +328,6 @@
           <main className={`max-w-5xl mx-auto w-full relative z-10 flex-grow transition-all duration-300 ${view === 'survey' ? 'p-0 sm:p-6 lg:p-8 mt-16 sm:mt-0' : 'p-4 sm:p-6 lg:p-8'}`}>
             {view === 'home' && <HomeView setView={setView} />}
             {view === 'survey' && <PatientSurvey onSubmit={handleSurveySubmit} activeDepartments={activeDepartments} departments={departments} isSubmitting={isSubmitting} setView={setView} />}
-            
-            {/* RESTORED LOGIN AND DASHBOARD VIEWS */}
             {view === 'login' && <LoginSelectView setView={setView} setActiveDeptId={setActiveDeptId} departments={departments} />}
             {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} drillDown={drillDown} setDrillDown={setDrillDown} />}
             {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} />}
@@ -339,16 +338,12 @@
             {FORM_CONTROL_NO}
           </div>
 
-          {/* RESTORED DRILL DOWN MODAL */}
           {drillDown && <DrillDownModal drillDown={drillDown} setDrillDown={setDrillDown} />}
-          
-          {/* NEW SUCCESS MODAL */}
           {showSuccess && <SuccessModal onClose={handleCloseSuccess} />}
         </div>
       );
     }
 
-    // --- HOME VIEW ---
     function HomeView({ setView }) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in zoom-in duration-500">
@@ -366,7 +361,6 @@
       );
     }
 
-    // --- SUCCESS MODAL ---
     function SuccessModal({ onClose }) {
       return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
@@ -376,9 +370,9 @@
             </div>
             <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-4 font-serif">Thank You!</h3>
             <p className="text-slate-600 dark:text-slate-300 text-lg mb-8 leading-relaxed">
-              Your response has been successfully submitted securely. We greatly appreciate your feedback in helping us improve our services at Taytay Doctors Multispecialty Hospital.
+              Your feedback is invaluable to us. We have securely received your responses and will use them to continuously elevate the quality of care and service at Taytay Doctors Multispecialty Hospital.
             </p>
-            <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md active:scale-95 text-lg">
+            <button onClick={onClose} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md active:scale-95 text-lg border border-blue-500">
               Return to Home
             </button>
           </div>
@@ -386,7 +380,6 @@
       )
     }
 
-    // --- RESTORED: PORTAL LOGIN VIEW ---
     function LoginSelectView({ setView, setActiveDeptId, departments }) {
       const [selectedDept, setSelectedDept] = useState(departments[0].id);
       const [loginType, setLoginType] = useState(null); 
@@ -467,7 +460,6 @@
       );
     }
 
-    // --- RESTORED: DRILL DOWN MODAL COMPONENT ---
     function DrillDownModal({ drillDown, setDrillDown }) {
       const { type, data, questionText, viewMonth } = drillDown;
       
@@ -541,7 +533,6 @@
       )
     }
 
-    // --- SINGLE PAGE PATIENT SURVEY OVERHAUL (EMOJIS) ---
     function PatientSurvey({ onSubmit, activeDepartments, departments, isSubmitting, setView }) {
       const availableDepartments = departments.filter(dept => activeDepartments[dept.id]);
       
@@ -563,9 +554,9 @@
           departments: {
             ...prev.departments,
             [deptId]: {
-              ...prev.departments[deptId],
+              ...(prev.departments[deptId] || {}),
               skipped: false,
-              answers: { ...prev.departments[deptId].answers, [qId]: score }
+              answers: { ...(prev.departments[deptId]?.answers || {}), [qId]: score }
             }
           }
         }));
@@ -576,14 +567,14 @@
           ...prev,
           departments: {
             ...prev.departments,
-            [deptId]: { ...prev.departments[deptId], comment: text }
+            [deptId]: { ...(prev.departments[deptId] || {}), comment: text }
           }
         }));
       };
 
       const toggleService = (deptId, service) => {
         setSurveyData(prev => {
-          const currentServices = prev.departments[deptId].selectedServices || [];
+          const currentServices = prev.departments[deptId]?.selectedServices || [];
           const newServices = currentServices.includes(service) 
              ? currentServices.filter(s => s !== service) 
              : [...currentServices, service];
@@ -591,7 +582,7 @@
              ...prev,
              departments: {
                 ...prev.departments,
-                [deptId]: { ...prev.departments[deptId], selectedServices: newServices }
+                [deptId]: { ...(prev.departments[deptId] || {}), selectedServices: newServices }
              }
           }
         });
@@ -601,7 +592,7 @@
         e.preventDefault();
         const cleanedData = { ...surveyData };
         Object.keys(cleanedData.departments).forEach(deptId => {
-           if (Object.keys(cleanedData.departments[deptId].answers).length === 0) {
+           if (Object.keys(cleanedData.departments[deptId]?.answers || {}).length === 0) {
               cleanedData.departments[deptId].skipped = true;
            }
         });
@@ -657,8 +648,8 @@
                       <div className="bg-blue-50/50 dark:bg-slate-900/50 p-6 rounded-2xl border border-blue-100 dark:border-slate-700">
                         <p className="font-bold text-slate-700 dark:text-slate-300 mb-4 text-lg">Please tick/check all the services you have encountered:</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {dept.services.map(service => {
-                            const isChecked = surveyData.departments[dept.id].selectedServices.includes(service);
+                          {(dept.services || []).map(service => {
+                            const isChecked = surveyData.departments[dept.id]?.selectedServices?.includes(service);
                             return (
                               <div key={service} onClick={() => toggleService(dept.id, service)} className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${isChecked ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-500'}`}>
                                 <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center shrink-0 transition-colors ${isChecked ? 'border-white bg-blue-500' : 'border-slate-300 dark:border-slate-500 bg-slate-50 dark:bg-slate-700'}`}>
@@ -673,8 +664,8 @@
                     )}
 
                     {/* QUESTIONS & EMOJIS */}
-                    {dept.questions.map((q) => {
-                      const ans = surveyData.departments[dept.id].answers[q.id];
+                    {(dept.questions || []).map((q) => {
+                      const ans = surveyData.departments[dept.id]?.answers?.[q.id];
                       return (
                         <div key={q.id} className="space-y-6">
                           <p className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white leading-snug">{q.text}</p>
@@ -704,7 +695,7 @@
                     })}
 
                     {/* OPTIONAL COMMENT (Shown only if they rated) */}
-                    {Object.keys(surveyData.departments[dept.id].answers).length > 0 && (
+                    {Object.keys(surveyData.departments[dept.id]?.answers || {}).length > 0 && (
                       <div className="pt-4 border-t border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
                         <textarea 
                            onChange={(e) => handleComment(dept.id, e.target.value)} 
@@ -773,11 +764,14 @@
       );
     }
 
-    // --- MASTER ADMIN DASHBOARD ---
     function AdminDashboard({ responses, censusData, setCensusData, activeDepartments, setActiveDepartments, departments, setDepartments, drillDown, setDrillDown }) {
       const [activeTab, setActiveTab] = useState('overview'); 
       const [newDeptName, setNewDeptName] = useState('');
       const [newQuestions, setNewQuestions] = useState({});
+      
+      // NEW STATE FOR DYNAMIC TICK BOXES
+      const [newServices, setNewServices] = useState({});
+
       const [isSavingCensus, setIsSavingCensus] = useState(false);
       
       const liveDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -801,7 +795,7 @@
       }
 
       const [selectedCommentMonth, setSelectedCommentMonth] = useState(currentMonthKey);
-      const [selectedCommentDept, setSelectedCommentDept] = useState(departments[0]?.id || 'all');
+      const [selectedCommentDept, setSelectedCommentDept] = useState('all');
 
       const analytics = useMemo(() => {
         const currentYear = new Date().getFullYear();
@@ -863,10 +857,12 @@
             if (!data.skipped && deptStats[deptId] && data.answers) {
               let resScore = 0; let resCount = 0;
               Object.values(data.answers).forEach(score => {
-                 resScore += score; resCount += 1;
-                 totalScore += score; totalQuestionsAnswered += 1;
+                 // FORCE strict numerical addition to prevent math glitches (e.g., "3"+"3" = "33")
+                 const numScore = Number(score) || 0; 
+                 resScore += numScore; resCount += 1;
+                 totalScore += numScore; totalQuestionsAnswered += 1;
                  if (deptStats[deptId].monthly[resMonth]) {
-                   deptStats[deptId].monthly[resMonth].score += score;
+                   deptStats[deptId].monthly[resMonth].score += numScore;
                    deptStats[deptId].monthly[resMonth].count += 1;
                  }
               });
@@ -890,7 +886,11 @@
         const fullYearDeptData = departments.map(d => {
            const monthlyAverages = allMonthsKeys.map(mk => {
               const mStats = deptStats[d.id].monthly[mk];
-              return mStats && mStats.count > 0 ? (mStats.score / mStats.count).toFixed(2) : '-';
+              // Satisfaction % formula: (Earned Points / Max Possible Points) * 100
+              const maxPossible = mStats.count * 3;
+              // Bulletproof cap at 100% just in case corrupted historical data has scores > 3
+              const satPct = maxPossible > 0 ? Math.min(Math.round((mStats.score / maxPossible) * 100), 100) : '-';
+              return satPct;
            });
            return { id: d.id, title: d.title, monthlyAverages, alerts: deptStats[d.id].alerts };
         });
@@ -899,10 +899,14 @@
           ? Math.round((genTallies['gen_5'].overall.Yes / (genTallies['gen_5'].overall.Yes + genTallies['gen_5'].overall.No)) * 100) : 0;
 
         const maxResponsesMonthly = Math.max(...Object.values(monthlyResponsesTally), 1); 
+        
+        // Facility overall Satisfaction %
+        const maxTotalPoints = totalQuestionsAnswered * 3;
+        const overallSatPct = maxTotalPoints > 0 ? Math.min(Math.round((totalScore / maxTotalPoints) * 100), 100) : 0;
 
         return { 
           responsesThisMonthCount, allMonthsKeys,
-          overallAvg: totalQuestionsAnswered > 0 ? (totalScore / totalQuestionsAnswered).toFixed(2) : "0.00", 
+          overallSatPct, 
           recommendationRate: recRate, fullYearDeptData, genTallies, monthlyResponsesTally, maxResponsesMonthly, structuredComments
         };
       }, [responses, departments, currentMonthKey]);
@@ -918,6 +922,16 @@
         const qText = newQuestions[deptId]; if(!qText || !qText.trim()) return;
         setDepartments(departments.map(d => d.id === deptId ? {...d, questions: [...d.questions, {id: 'q_'+Date.now(), text: qText.trim()}]} : d ));
         setNewQuestions({...newQuestions, [deptId]: ''});
+      };
+
+      // FUNCTION TO ADD NEW TICK BOXES
+      const handleAddService = (deptId) => {
+        const sText = newServices[deptId];
+        if(!sText || !sText.trim()) return;
+        setDepartments(departments.map(d => 
+          d.id === deptId ? {...d, services: [...(d.services || []), sText.trim()]} : d
+        ));
+        setNewServices({...newServices, [deptId]: ''});
       };
 
       const currentCensus = parseInt(censusData[currentMonthKey]) || 0;
@@ -939,7 +953,7 @@
           </div>
 
           <div className="flex border-b border-slate-200 dark:border-slate-700 px-4 sm:px-10 bg-slate-50/80 dark:bg-slate-900/80 overflow-x-auto custom-scrollbar no-print shrink-0 pb-1">
-            {['overview', 'monthly report', 'critical alerts', 'comments & suggestions', 'settings'].map(tab => (
+            {['overview', 'monthly report', 'critical alerts', 'comments & suggestions', 'question configurations'].map(tab => (
               <button key={tab} onClick={()=>setActiveTab(tab)} className={`whitespace-nowrap py-5 px-4 sm:px-6 font-bold text-sm sm:text-base border-b-4 transition-colors capitalize ${activeTab === tab ? 'border-blue-600 dark:border-blue-400 text-blue-800 dark:text-blue-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}>
                 {tab}
               </button>
@@ -953,11 +967,12 @@
               <div className="space-y-12 animate-in slide-in-from-bottom-2">
                 
                 {/* Metric Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   {/* Editable Census Input */}
                   <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-sm hover:border-blue-300 transition-colors relative flex flex-col justify-between">
                     <div>
-                      <p className="text-slate-500 dark:text-slate-400 font-bold mb-4 uppercase tracking-wide text-sm">Total Census (This Month)</p>
+                      <p className="text-slate-500 dark:text-slate-400 font-bold mb-1 uppercase tracking-wide text-sm">Total Census</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mb-4 leading-tight">Total patients admitted or visited (This Month)</p>
                       <input 
                           type="number" 
                           min="0"
@@ -968,9 +983,9 @@
                       />
                     </div>
                     <div className="flex items-center justify-between mt-6">
-                       <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Syncs to Database</p>
-                       <button onClick={handleCensusSave} disabled={isSavingCensus} className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/60 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-800 dark:text-blue-300 px-5 py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 no-print shadow-sm">
-                          {isSavingCensus ? <RefreshCw className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
+                       <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Manual Input</p>
+                       <button onClick={handleCensusSave} disabled={isSavingCensus} className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/60 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-800 dark:text-blue-300 px-4 py-2 rounded-xl font-bold text-xs transition-colors disabled:opacity-50 no-print shadow-sm">
+                          {isSavingCensus ? <RefreshCw className="w-3 h-3 animate-spin"/> : <Save className="w-3 h-3"/>}
                           {isSavingCensus ? 'Saving...' : 'Save Data'}
                        </button>
                     </div>
@@ -978,39 +993,63 @@
                   {/* Total Responses */}
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
                     <div>
-                      <p className="text-blue-800 dark:text-blue-400 font-bold mb-4 uppercase tracking-wide text-sm">Total Responses (This Month)</p>
+                      <p className="text-blue-800 dark:text-blue-400 font-bold mb-1 uppercase tracking-wide text-sm">Total Responses</p>
+                      <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mb-4 leading-tight">Surveys successfully submitted (This Month)</p>
                       <p className="text-5xl sm:text-6xl font-black text-blue-900 dark:text-blue-200">{analytics.responsesThisMonthCount}</p>
                     </div>
-                    <p className="text-xs font-bold text-blue-600 dark:text-blue-500 mt-6 uppercase tracking-wide">Automated Count</p>
+                    <p className="text-[10px] font-bold text-blue-600 dark:text-blue-500 mt-6 uppercase tracking-widest">Automated Count</p>
                   </div>
-                  {/* Response Rate & Facility Avg */}
-                  <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+                  {/* Response Rate */}
+                  <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between relative group">
                     <div>
-                       <p className="text-indigo-800 dark:text-indigo-400 font-bold mb-4 uppercase tracking-wide text-sm">Facility Avg Score</p>
-                       <p className="text-5xl sm:text-6xl font-black text-indigo-900 dark:text-indigo-200">{analytics.overallAvg} <span className="text-2xl text-indigo-700 dark:text-indigo-500">/ 3.0</span></p>
+                       <p className="text-emerald-800 dark:text-emerald-400 font-bold mb-1 uppercase tracking-wide text-sm">Response Rate</p>
+                       <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mb-4 leading-tight">Percentage of patients who answered</p>
+                       <p className="text-5xl sm:text-6xl font-black text-emerald-900 dark:text-emerald-200">{currentResponseRate}%</p>
                     </div>
-                    <p className="text-xs font-bold text-indigo-600 dark:text-indigo-500 mt-6 uppercase tracking-wide">Combined average of all depts</p>
+                    <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-500 mt-6 uppercase tracking-widest">
+                       (Total Responses ÷ Total Census)
+                    </p>
+                  </div>
+                  {/* Facility Avg Quality */}
+                  <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between relative group">
+                    <div>
+                       <p className="text-indigo-800 dark:text-indigo-400 font-bold mb-1 uppercase tracking-wide text-sm">Satisfaction Rate</p>
+                       <p className="text-xs text-indigo-600/70 dark:text-indigo-400/70 mb-4 leading-tight">Overall quality of care rating</p>
+                       <p className="text-5xl sm:text-6xl font-black text-indigo-900 dark:text-indigo-200">{analytics.overallSatPct}%</p>
+                    </div>
+                    <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-500 mt-6 uppercase tracking-widest">
+                       (Points Earned ÷ Max Possible)
+                    </p>
                   </div>
                 </div>
 
                 {/* 12 Month Trend Graph */}
                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem] shadow-sm">
-                  <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><BarChart3 className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Survey Volume (Jan - Dec)</h3>
+                  <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><BarChart3 className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Survey Volume (Response Rate %)</h3>
                   <div className="flex items-end justify-between gap-1 sm:gap-4 h-[400px] sm:h-[500px] border-b-4 border-slate-100 dark:border-slate-700 pb-2 relative">
                      {analytics.allMonthsKeys.map((mk, index) => {
                         const count = analytics.monthlyResponsesTally[mk];
-                        const heightPct = analytics.maxResponsesMonthly > 0 ? (count / analytics.maxResponsesMonthly) * 100 : 0;
-                        const isCurrent = mk === currentMonthKey;
                         const mCensus = parseInt(censusData[mk]) || 0;
-                        const mRate = mCensus > 0 ? ((count / mCensus) * 100).toFixed(0) : 0;
+                        const rate = mCensus > 0 ? ((count / mCensus) * 100).toFixed(0) : 0;
+                        const heightPct = mCensus > 0 ? Math.min(rate, 100) : (analytics.maxResponsesMonthly > 0 ? (count / analytics.maxResponsesMonthly) * 100 : 0);
+                        const isCurrent = mk === currentMonthKey;
                         
                         return (
-                           <div key={mk} className="flex flex-col items-center flex-1 h-full justify-end group">
-                              <div className={`transition-opacity flex flex-col items-center mb-3 ${count === 0 ? 'opacity-0' : 'opacity-100'}`}>
-                                 {mCensus > 0 && <span className={`text-[10px] sm:text-xs font-black px-2 py-1 rounded-full mb-1 shadow-sm ${isCurrent ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>{mRate}%</span>}
-                                 <span className={`text-base sm:text-xl font-black ${isCurrent ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>{count}</span>
+                           <div key={mk} className="flex flex-col items-center flex-1 h-full justify-end">
+                              <div className={`flex flex-col items-center mb-3`}>
+                                 {mCensus > 0 ? (
+                                   <>
+                                     <span className={`text-base sm:text-xl font-black ${isCurrent ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>{count === 0 ? '-' : rate + '%'}</span>
+                                     <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full mt-1 ${isCurrent ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>Vol: {count}</span>
+                                   </>
+                                 ) : (
+                                   <>
+                                     <span className={`text-base sm:text-xl font-black ${isCurrent ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>{count === 0 ? '-' : count}</span>
+                                     <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full mt-1 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400`}>No Census</span>
+                                   </>
+                                 )}
                               </div>
-                              <div className={`w-full max-w-[4rem] rounded-t-xl transition-all duration-1000 ${isCurrent ? 'bg-gradient-to-t from-indigo-500 to-indigo-400 shadow-lg' : 'bg-blue-400 dark:bg-blue-500 hover:bg-blue-500'}`} style={{ height: `${heightPct}%`, minHeight: count > 0 ? '5%' : '4px' }}></div>
+                              <div className={`w-full max-w-[4rem] rounded-t-xl transition-all duration-1000 ${isCurrent ? 'bg-gradient-to-t from-indigo-500 to-indigo-400 shadow-lg' : 'bg-blue-400 dark:bg-blue-500'}`} style={{ height: `${heightPct}%`, minHeight: count > 0 ? '5%' : '4px' }}></div>
                               <div className={`text-xs sm:text-sm font-black mt-4 uppercase tracking-widest ${isCurrent ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`}>{ALL_MONTHS_LABELS[index]}</div>
                            </div>
                         )
@@ -1072,7 +1111,12 @@
                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
                    <div>
                      <h3 className="text-3xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-3"><CalendarDays className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Full Year Department Averages</h3>
-                     <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Average performance scores grouped by month (Max 3.0).</p>
+                     <p className="text-slate-500 dark:text-slate-400 mt-4 font-medium max-w-3xl leading-relaxed bg-blue-50 dark:bg-slate-800 p-4 rounded-xl border border-blue-100 dark:border-slate-700">
+                        <strong className="text-slate-800 dark:text-slate-200">How to read this table:</strong> Scores are strictly represented as a <strong className="text-blue-700 dark:text-blue-400">Satisfaction Percentage</strong>. <br/>
+                        Calculation: Every rating has a point value (<strong className="text-green-600">😁 Happy = 3 pts</strong>, <strong className="text-yellow-600">😐 Neutral = 2 pts</strong>, <strong className="text-red-600">😢 Sad = 1 pt</strong>). 
+                        We divide the Total Points Earned by the Maximum Possible Points to get the percentage. 
+                        A 100% score means every single patient chose "Happy".
+                     </p>
                    </div>
                    <button onClick={() => window.print()} className="bg-slate-800 dark:bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-blue-700 shadow-md no-print font-sans"><Printer className="w-5 h-5" /> Print Table</button>
                  </div>
@@ -1092,11 +1136,18 @@
                              <td className={`p-5 font-bold text-slate-800 dark:text-white sticky left-0 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700' : 'bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700'}`}>
                                 {dept.title}
                              </td>
-                             {dept.monthlyAverages.map((avg, i) => (
-                                <td key={i} className={`p-5 text-center font-black text-lg ${avg === '-' ? 'text-slate-300 dark:text-slate-600 font-normal' : parseFloat(avg) < 2.0 ? 'text-red-600 dark:text-red-400 bg-red-50/30 dark:bg-red-900/10' : 'text-blue-700 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/10'}`}>
-                                   {avg}
-                                </td>
-                             ))}
+                             {dept.monthlyAverages.map((satPct, i) => {
+                                const isDash = satPct === '-';
+                                const colorClass = isDash ? 'text-slate-300 dark:text-slate-600 font-normal' : satPct < 66 ? 'text-red-600 dark:text-red-400 bg-red-50/30 dark:bg-red-900/10' : 'text-blue-700 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/10';
+                                
+                                return (
+                                  <td key={i} className={`p-4 text-center ${colorClass}`}>
+                                     {isDash ? '-' : (
+                                       <span className="font-black text-lg">{satPct}%</span>
+                                     )}
+                                  </td>
+                                )
+                             })}
                            </tr>
                          ))}
                        </tbody>
@@ -1109,24 +1160,33 @@
             {/* 3. CRITICAL ALERTS TAB */}
             {activeTab === 'critical alerts' && (
                <div className="space-y-6 animate-in slide-in-from-bottom-2">
-                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 p-8 rounded-3xl mb-8 shadow-sm">
-                   <h3 className="text-2xl font-black text-red-800 dark:text-red-400 flex items-center gap-3"><AlertTriangle className="w-8 h-8"/> Attention Required</h3>
-                   <p className="text-red-700 dark:text-red-300 mt-2 font-medium">These responses contain at least one "Sad (1)" rating. Please review these immediately.</p>
+                 <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800/50 p-8 rounded-3xl mb-8 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                   <div>
+                     <h3 className="text-2xl font-black text-red-800 dark:text-red-400 flex items-center gap-3"><AlertTriangle className="w-8 h-8"/> Critical Alerts (Requires Action)</h3>
+                     <p className="text-red-700 dark:text-red-300 mt-2 font-medium">These responses contain at least one "Sad (1)" rating. Please review and coordinate with the respective department heads.</p>
+                   </div>
                  </div>
                  {analytics.fullYearDeptData.filter(d => d.alerts.length > 0).length === 0 ? (
-                   <div className="text-center py-16 text-slate-500 font-bold text-lg bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700">No critical alerts detected! Everything looks great.</div>
+                   <div className="text-center py-16 text-slate-500 font-bold text-lg bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-3"><ThumbsUp className="w-12 h-12 text-slate-300 dark:text-slate-600"/> No critical alerts detected! Everything looks great.</div>
                  ) : (
                    analytics.fullYearDeptData.filter(d => d.alerts.length > 0).map(dept => (
-                     <div key={dept.id} className="border-2 border-red-100 dark:border-red-900/50 rounded-3xl overflow-hidden shadow-sm mb-6 bg-white dark:bg-slate-800">
-                       <div className="bg-red-50/50 dark:bg-red-900/30 p-5 px-8 font-black text-xl text-red-900 dark:text-red-300 border-b border-red-100 dark:border-red-900/50">{dept.title}</div>
-                       <div className="divide-y divide-red-50 dark:divide-slate-700">
+                     <div key={dept.id} className="border-2 border-red-100 dark:border-red-900/50 rounded-3xl overflow-hidden shadow-sm mb-6 bg-white dark:bg-slate-800 transition-colors">
+                       <div className="bg-red-50/80 dark:bg-red-900/40 p-4 px-6 font-black text-lg text-red-900 dark:text-red-300 border-b border-red-100 dark:border-red-900/50 flex justify-between items-center">
+                          <span>{dept.title}</span>
+                          <span className="bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 text-xs px-3 py-1 rounded-full">{dept.alerts.length} Alert(s)</span>
+                       </div>
+                       <div className="divide-y divide-red-50 dark:divide-slate-700/50">
                          {dept.alerts.map((alert, i) => (
-                           <div key={i} className="p-8 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                              <p className="text-slate-800 dark:text-slate-200 font-medium text-lg leading-relaxed mb-4">"{alert.text || 'No written comment provided.'}"</p>
-                              <div className="flex flex-wrap items-center gap-4 text-sm">
-                                 <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">{new Date(alert.date).toLocaleDateString()} • {new Date(alert.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                 <span className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-lg">Room: <span className="text-blue-600 dark:text-blue-400">{alert.room}</span></span>
+                           <div key={i} className="p-6 sm:p-8 hover:bg-red-50/30 dark:hover:bg-slate-700/30 transition-colors flex flex-col sm:flex-row gap-6 items-start">
+                              <div className="bg-red-100 dark:bg-red-900/50 p-3 rounded-2xl shrink-0"><AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" /></div>
+                              <div className="flex-1">
+                                <p className="text-slate-800 dark:text-slate-200 font-medium text-lg leading-relaxed mb-4">"{alert.text || 'Patient left a sad rating without providing a written comment.'}"</p>
+                                <div className="flex flex-wrap items-center gap-3 text-sm">
+                                   <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg">{new Date(alert.date).toLocaleDateString()} • {new Date(alert.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                   <span className="font-bold text-slate-700 dark:text-slate-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 px-3 py-1.5 rounded-lg">Room: <span className="text-blue-700 dark:text-blue-400">{alert.room}</span></span>
+                                </div>
                               </div>
+                              <button className="text-xs font-bold text-slate-500 dark:text-slate-400 border-2 border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shrink-0">Mark Noted</button>
                            </div>
                          ))}
                        </div>
@@ -1150,83 +1210,114 @@
                     <div className="flex-1 w-full">
                        <label className="block text-slate-500 dark:text-slate-400 font-black text-sm mb-3 uppercase tracking-widest">Filter by Department</label>
                        <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-lg" value={selectedCommentDept} onChange={e => setSelectedCommentDept(e.target.value)}>
+                          <option value="all">All Departments</option>
                           {departments.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}
                        </select>
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+                 {/* Display Logic for "All" vs Specific */}
+                 {(() => {
+                    let combinedPositive = [];
+                    let combinedNegative = [];
                     
-                    {/* POSITIVE COLUMN */}
-                    <div className="border-2 border-green-200 dark:border-green-900/50 rounded-[2rem] bg-white dark:bg-slate-800 shadow-sm flex flex-col min-h-[500px] overflow-hidden transition-colors">
-                       <div className="bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 p-6 font-black text-xl flex items-center justify-between border-b-2 border-green-200 dark:border-green-900/50">
-                          <span className="flex items-center gap-3"><ThumbsUp className="w-7 h-7"/> Positive Feedback</span>
-                          <span className="bg-green-200 dark:bg-green-900/60 text-green-900 dark:text-green-300 px-3 py-1.5 rounded-xl text-sm shadow-sm tracking-wide uppercase">Happy / Neutral</span>
-                       </div>
-                       <div className="p-6 flex-1 space-y-6 bg-slate-50/50 dark:bg-slate-900/30">
-                          {analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.positive?.length > 0 ? (
-                             analytics.structuredComments[selectedCommentDept][selectedCommentMonth].positive.map((c, i) => (
-                               <div key={i} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-                                  <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed font-sans mb-4">"{c.text}"</p>
-                                  <div className="flex flex-wrap justify-between items-center gap-4 border-t border-slate-100 dark:border-slate-700 pt-4">
-                                    <div className="flex flex-col gap-1">
-                                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleDateString()} • {new Date(c.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Room: <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">{c.room}</span></span>
-                                    </div>
-                                    <span className="text-sm font-black text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-3 py-1.5 rounded-xl shadow-sm border border-green-200 dark:border-green-800/50">Score: {c.score.toFixed(1)}/3.0</span>
-                                  </div>
-                               </div>
-                             ))
-                          ) : (
-                             <div className="flex items-center justify-center h-full min-h-[300px]">
-                               <p className="text-slate-400 italic font-medium text-lg">No positive comments recorded.</p>
-                             </div>
-                          )}
-                       </div>
-                    </div>
+                    if (selectedCommentDept === 'all') {
+                       departments.forEach(d => {
+                          if (analytics.structuredComments[d.id]?.[selectedCommentMonth]) {
+                             combinedPositive = combinedPositive.concat(analytics.structuredComments[d.id][selectedCommentMonth].positive.map(c => ({...c, deptName: d.title})));
+                             combinedNegative = combinedNegative.concat(analytics.structuredComments[d.id][selectedCommentMonth].negative.map(c => ({...c, deptName: d.title})));
+                          }
+                       });
+                    } else {
+                       combinedPositive = (analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.positive || []).map(c => ({...c, deptName: departments.find(d=>d.id===selectedCommentDept)?.title}));
+                       combinedNegative = (analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.negative || []).map(c => ({...c, deptName: departments.find(d=>d.id===selectedCommentDept)?.title}));
+                    }
+                    
+                    combinedPositive.sort((a,b) => new Date(b.date) - new Date(a.date));
+                    combinedNegative.sort((a,b) => new Date(b.date) - new Date(a.date));
 
-                    {/* NEGATIVE COLUMN */}
-                    <div className="border-2 border-red-200 dark:border-red-900/50 rounded-[2rem] bg-white dark:bg-slate-800 shadow-sm flex flex-col min-h-[500px] overflow-hidden transition-colors">
-                       <div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 p-6 font-black text-xl flex items-center justify-between border-b-2 border-red-200 dark:border-red-900/50">
-                          <span className="flex items-center gap-3"><AlertTriangle className="w-7 h-7"/> Areas for Improvement</span>
-                          <span className="bg-red-200 dark:bg-red-900/60 text-red-900 dark:text-red-300 px-3 py-1.5 rounded-xl text-sm shadow-sm tracking-wide uppercase">Sad Score</span>
-                       </div>
-                       <div className="p-6 flex-1 space-y-6 bg-slate-50/50 dark:bg-slate-900/30">
-                          {analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.negative?.length > 0 ? (
-                             analytics.structuredComments[selectedCommentDept][selectedCommentMonth].negative.map((c, i) => (
-                               <div key={i} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-                                  <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed font-sans mb-4">"{c.text}"</p>
-                                  <div className="flex flex-wrap justify-between items-center gap-4 border-t border-slate-100 dark:border-slate-700 pt-4">
-                                    <div className="flex flex-col gap-1">
-                                      <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleDateString()} • {new Date(c.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Room: <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">{c.room}</span></span>
-                                    </div>
-                                    <span className="text-sm font-black text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-3 py-1.5 rounded-xl shadow-sm border border-red-200 dark:border-red-800/50">Score: {c.score.toFixed(1)}/3.0</span>
-                                  </div>
-                               </div>
-                             ))
-                          ) : (
-                             <div className="flex items-center justify-center h-full min-h-[300px]">
-                               <p className="text-slate-400 italic font-medium text-lg">No negative comments recorded.</p>
-                             </div>
-                          )}
-                       </div>
-                    </div>
+                    return (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                        
+                        {/* POSITIVE COLUMN */}
+                        <div className="border-2 border-green-200 dark:border-green-900/50 rounded-[2rem] bg-white dark:bg-slate-800 shadow-sm flex flex-col min-h-[500px] overflow-hidden transition-colors">
+                           <div className="bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 p-6 font-black text-xl flex items-center justify-between border-b-2 border-green-200 dark:border-green-900/50">
+                              <span className="flex items-center gap-3"><ThumbsUp className="w-7 h-7"/> Positive Feedback</span>
+                              <span className="bg-green-200 dark:bg-green-900/60 text-green-900 dark:text-green-300 px-3 py-1.5 rounded-xl text-sm shadow-sm tracking-wide uppercase">{combinedPositive.length} Comments</span>
+                           </div>
+                           <div className="p-6 flex-1 space-y-6 bg-slate-50/50 dark:bg-slate-900/30">
+                              {combinedPositive.length > 0 ? (
+                                 combinedPositive.map((c, i) => (
+                                   <div key={i} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                                      {selectedCommentDept === 'all' && (
+                                         <div className="bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 px-3 py-1 rounded-lg font-black text-xs mb-4 inline-block uppercase tracking-wider">{c.deptName}</div>
+                                      )}
+                                      <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed font-sans mb-4">"{c.text}"</p>
+                                      <div className="flex flex-wrap justify-between items-center gap-4 border-t border-slate-100 dark:border-slate-700 pt-4">
+                                        <div className="flex flex-col gap-2">
+                                          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleDateString()}</span>
+                                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Room: <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">{c.room}</span></span>
+                                        </div>
+                                      </div>
+                                   </div>
+                                 ))
+                              ) : (
+                                 <div className="flex items-center justify-center h-full min-h-[300px]">
+                                   <p className="text-slate-400 italic font-medium text-lg">No positive comments recorded for this selection.</p>
+                                 </div>
+                              )}
+                           </div>
+                        </div>
 
-                 </div>
+                        {/* NEGATIVE COLUMN */}
+                        <div className="border-2 border-red-200 dark:border-red-900/50 rounded-[2rem] bg-white dark:bg-slate-800 shadow-sm flex flex-col min-h-[500px] overflow-hidden transition-colors">
+                           <div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 p-6 font-black text-xl flex items-center justify-between border-b-2 border-red-200 dark:border-red-900/50">
+                              <span className="flex items-center gap-3"><AlertTriangle className="w-7 h-7"/> Areas for Improvement</span>
+                              <span className="bg-red-200 dark:bg-red-900/60 text-red-900 dark:text-red-300 px-3 py-1.5 rounded-xl text-sm shadow-sm tracking-wide uppercase">{combinedNegative.length} Comments</span>
+                           </div>
+                           <div className="p-6 flex-1 space-y-6 bg-slate-50/50 dark:bg-slate-900/30">
+                              {combinedNegative.length > 0 ? (
+                                 combinedNegative.map((c, i) => (
+                                   <div key={i} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                                      {selectedCommentDept === 'all' && (
+                                         <div className="bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 px-3 py-1 rounded-lg font-black text-xs mb-4 inline-block uppercase tracking-wider">{c.deptName}</div>
+                                      )}
+                                      <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed font-sans mb-4">"{c.text}"</p>
+                                      <div className="flex flex-wrap justify-between items-center gap-4 border-t border-slate-100 dark:border-slate-700 pt-4">
+                                        <div className="flex flex-col gap-2">
+                                          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleDateString()}</span>
+                                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Room: <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">{c.room}</span></span>
+                                        </div>
+                                      </div>
+                                   </div>
+                                 ))
+                              ) : (
+                                 <div className="flex items-center justify-center h-full min-h-[300px]">
+                                   <p className="text-slate-400 italic font-medium text-lg">No negative comments recorded for this selection.</p>
+                                 </div>
+                              )}
+                           </div>
+                        </div>
+
+                      </div>
+                    )
+                 })()}
                </div>
             )}
 
             {/* 5. SETTINGS & EDITOR TAB */}
-            {activeTab === 'settings' && (
+            {activeTab === 'question configurations' && (
                <div className="animate-in slide-in-from-bottom-2 space-y-10 no-print">
                  <form onSubmit={handleAddDepartment} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-8 rounded-3xl flex flex-col sm:flex-row gap-6 items-end shadow-sm">
                    <div className="flex-1 w-full"><label className="block text-blue-900 dark:text-blue-300 font-bold mb-3 text-lg">Create New Department</label><input type="text" value={newDeptName} onChange={(e)=>setNewDeptName(e.target.value)} placeholder="e.g. Outpatient Department" className="w-full p-5 rounded-2xl border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium text-lg" /></div>
                    <button type="submit" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-10 py-5 rounded-2xl flex items-center justify-center gap-2 text-lg shadow-md transition-all active:scale-95"><Plus className="w-6 h-6"/> Add Unit</button>
                  </form>
+                 
                  <div className="space-y-6">
                    {departments.map(dept => (
                      <div key={dept.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
+                       
+                       {/* DEPARTMENT HEADER */}
                        <div className="bg-slate-50 dark:bg-slate-800/50 p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b border-slate-200 dark:border-slate-700">
                           <span className="font-black text-slate-800 dark:text-white text-xl flex items-center gap-3"><Edit2 className="w-6 h-6 text-slate-400" /> {dept.title}</span>
                           <label className="flex items-center gap-4 cursor-pointer group bg-white dark:bg-slate-700 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-sm hover:border-blue-300 dark:hover:border-blue-500 transition-colors">
@@ -1235,14 +1326,38 @@
                             <input type="checkbox" className="hidden" checked={activeDepartments[dept.id]} onChange={() => setActiveDepartments(prev => ({...prev, [dept.id]: !prev[dept.id]}))} />
                           </label>
                        </div>
+                       
                        <div className="p-6 sm:p-8 space-y-4">
+                         
+                         {/* DYNAMIC TICK BOX EDITOR (Only for 'checkbox' type departments) */}
+                         {dept.type === 'checkbox' && (
+                           <div className="mb-8 p-6 bg-indigo-50/50 dark:bg-slate-900/80 rounded-2xl border border-indigo-100 dark:border-slate-700">
+                             <p className="font-bold text-slate-800 dark:text-slate-200 mb-4 text-lg">Manage Service Tick Boxes:</p>
+                             
+                             {/* Existing Checkboxes */}
+                             <div className="flex flex-wrap gap-3 mb-6">
+                               {dept.services?.map((svc, i) => (
+                                  <span key={i} className="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 px-4 py-2 rounded-xl text-base font-bold shadow-sm">{svc}</span>
+                               ))}
+                             </div>
+                             
+                             {/* Add New Checkbox Input */}
+                             <div className="flex flex-col sm:flex-row gap-3">
+                               <input type="text" placeholder="Add a new tick box (e.g. 'Therapy')..." className="flex-1 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-950 dark:text-white outline-none focus:border-indigo-400 font-medium transition-colors" value={newServices[dept.id] || ''} onChange={(e) => setNewServices({...newServices, [dept.id]: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleAddService(dept.id)} />
+                               <button type="button" onClick={() => handleAddService(dept.id)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl text-base font-bold transition-colors shadow-sm">Add Option</button>
+                             </div>
+                           </div>
+                         )}
+
+                         {/* QUESTION LIST & EDITOR */}
                          {dept.questions.length === 0 ? <p className="text-lg italic text-slate-400">No questions added yet.</p> : (
                            <ul className="list-disc list-inside space-y-3">{dept.questions.map((q, i) => <li key={q.id} className="text-slate-700 dark:text-slate-300 text-lg font-medium"><span className="text-blue-600 dark:text-blue-400 mr-2 font-black">Q{i+1}:</span> {q.text}</li>)}</ul>
                          )}
                          <div className="flex flex-col sm:flex-row gap-4 mt-6 border-t border-slate-100 dark:border-slate-700 pt-6">
-                           <input type="text" placeholder="Add a new question to this unit..." className="flex-1 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white outline-none focus:border-blue-400 dark:focus:border-blue-500 text-base font-medium transition-colors" value={newQuestions[dept.id] || ''} onChange={(e) => setNewQuestions({...newQuestions, [dept.id]: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion(dept.id)} />
+                           <input type="text" placeholder="Add a new survey question to this unit..." className="flex-1 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white outline-none focus:border-blue-400 dark:focus:border-blue-500 text-base font-medium transition-colors" value={newQuestions[dept.id] || ''} onChange={(e) => setNewQuestions({...newQuestions, [dept.id]: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion(dept.id)} />
                            <button onClick={() => handleAddQuestion(dept.id)} className="bg-slate-800 dark:bg-slate-700 text-white px-8 py-4 rounded-xl text-base font-bold hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors shadow-sm">Add Question</button>
                          </div>
+
                        </div>
                      </div>
                    ))}
@@ -1254,95 +1369,178 @@
       );
     }
 
-    // --- DEPARTMENT DASHBOARD ---
     function DepartmentDashboard({ responses, deptId, departments }) {
       const dept = departments.find(d => d.id === deptId);
       
+      const currentMonthKey = getMonthString(new Date());
+      const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
+
       const monthlyData = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        const allMonthsKeys = Array.from({length: 12}, (_, i) => `${currentYear}-${String(i + 1).padStart(2, '0')}`);
+        
+        // Ensure all 12 months are built by default
         const months = {}; 
+        allMonthsKeys.forEach(mk => {
+           const d = new Date(mk + "-01");
+           months[mk] = { label: d.toLocaleString('default', { month: 'short', year: 'numeric' }), key: mk, totalScore: 0, count: 0, positive: [], negative: [] };
+        });
+
         responses.forEach(res => {
           const dData = res.departments?.[deptId];
           if (dData && !dData.skipped && dData.answers) {
             const dateObj = new Date(res.timestamp);
             const monthKey = getMonthString(dateObj);
-            const monthLabel = dateObj.toLocaleString('default', { month: 'short', year: 'numeric' });
             
-            if (!months[monthKey]) months[monthKey] = { label: monthLabel, totalScore: 0, count: 0, comments: [] };
-            
-            let localScore = 0; let localCount = 0;
-            Object.values(dData.answers).forEach(score => { localScore += score; localCount++; months[monthKey].totalScore += score; months[monthKey].count += 1; });
-            if (dData.comment) {
-               const avg = localCount > 0 ? (localScore/localCount) : 0;
-               months[monthKey].comments.push({ text: dData.comment, date: res.timestamp, type: avg <= 2.0 ? 'improvement' : 'compliment', room: res.general?.room_number || 'Unknown' });
+            // Only aggregate if it matches the current year grid, otherwise ignore for this chart
+            if (months[monthKey]) {
+                let localScore = 0; let localCount = 0;
+                Object.values(dData.answers).forEach(score => { 
+                   const numScore = Number(score) || 0;
+                   localScore += numScore; localCount++; 
+                   months[monthKey].totalScore += numScore; 
+                   months[monthKey].count += 1; 
+                });
+                if (dData.comment && dData.comment.trim() !== '') {
+                   const avg = localCount > 0 ? (localScore/localCount) : 0;
+                   const cObj = { text: dData.comment, date: res.timestamp, score: avg, room: res.general?.room_number || 'Unknown' };
+                   if (avg >= 2.0) months[monthKey].positive.push(cObj);
+                   else months[monthKey].negative.push(cObj);
+                }
             }
           }
         });
 
-        return Object.keys(months).sort().map(key => {
+        // Convert the object mapping back to a sorted array (Jan -> Dec)
+        return allMonthsKeys.map(key => {
           const d = months[key];
-          return { label: d.label, avg: (d.totalScore / d.count).toFixed(2), comments: d.comments };
-        }).reverse(); 
+          const maxPossible = d.count * 3;
+          // Bulletproof cap at 100% just in case corrupted historical data has scores > 3
+          const satPct = maxPossible > 0 ? Math.min(Math.round((d.totalScore / maxPossible) * 100), 100) : 0;
+          return { label: d.label, key: d.key, pct: satPct, count: d.count, positive: d.positive, negative: d.negative };
+        }); 
       }, [responses, deptId]);
 
-      const latestMonth = monthlyData.length > 0 ? monthlyData[0] : null;
+      const selectedMonthData = monthlyData.find(m => m.key === selectedMonth) || { positive: [], negative: [], label: '', pct: 0, count: 0 };
+      const latestMonth = monthlyData.find(m => m.key === currentMonthKey) || { pct: 0, count: 0, label: 'N/A' };
 
       return (
         <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-700 p-6 sm:p-12 print-dashboard relative transition-colors">
           <div className="absolute inset-0 z-0 opacity-10 pointer-events-none hidden print:block" style={{backgroundImage: `url('${BACKGROUND_URL}')`, backgroundSize: 'cover', backgroundPosition: 'center'}} />
           <div className="relative z-10">
             <div className="flex justify-between items-start mb-8 border-b border-slate-200 dark:border-slate-700 pb-6">
-              <div><h2 className="text-3xl font-bold text-slate-900 dark:text-white font-serif">{dept?.title} Report</h2><p className="text-slate-500 dark:text-slate-400 mt-1 font-sans">Monthly Performance Analytics</p></div>
-              <button onClick={() => window.print()} className="bg-slate-800 dark:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-blue-700 no-print font-sans"><Printer className="w-5 h-5" /> Print Report</button>
+              <div><h2 className="text-3xl font-bold text-slate-900 dark:text-white font-serif">{dept?.title}</h2><p className="text-slate-500 dark:text-slate-400 mt-1 font-sans">Departmental Performance Report</p></div>
+              <button onClick={() => window.print()} className="bg-slate-800 dark:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-blue-700 no-print font-sans shadow-md"><Printer className="w-5 h-5" /> Print Report</button>
             </div>
 
-            {monthlyData.length === 0 ? ( <div className="text-center py-16 text-slate-500 dark:text-slate-400 italic">No data recorded for this department yet.</div> ) : (
-              <div className="space-y-12">
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 p-6 rounded-3xl w-full sm:w-1/2 shadow-sm">
-                  <p className="text-blue-800 dark:text-blue-400 font-bold font-sans uppercase tracking-wide text-sm mb-2">Latest Monthly Average ({latestMonth.label})</p>
-                  <p className="text-5xl font-black text-blue-900 dark:text-blue-100 mt-2 font-sans">{latestMonth.avg} <span className="text-2xl text-blue-700 dark:text-blue-500">/ 3.0</span></p>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-6 font-serif">Historical Trend (Month over Month)</h3>
-                  <div className="flex items-end gap-4 h-64 border-b-4 border-slate-100 dark:border-slate-700 pb-2 font-sans">
-                    {monthlyData.slice().reverse().map((m, i) => { 
-                      const heightPct = (parseFloat(m.avg) / 3.0) * 100;
-                      return (
-                        <div key={i} className="flex flex-col items-center flex-1 group h-full justify-end">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold mb-2 print:opacity-100 text-slate-600 dark:text-slate-300">{m.avg}</div>
-                          <div className={`w-full max-w-[4rem] rounded-t-xl transition-all ${parseFloat(m.avg) < 2.0 ? 'bg-amber-400' : 'bg-gradient-to-t from-blue-500 to-blue-400'}`} style={{ height: `${heightPct}%`, minHeight: '10%' }}></div>
-                          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-3 rotate-45 sm:rotate-0 origin-left print:rotate-0 whitespace-nowrap uppercase tracking-wider">{m.label}</div>
-                        </div>
-                      );
-                    })}
+            <div className="space-y-12">
+              
+              {/* Highlight Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 p-8 rounded-3xl shadow-sm flex flex-col justify-center">
+                  <p className="text-blue-800 dark:text-blue-400 font-bold font-sans uppercase tracking-wide text-sm mb-2">Satisfaction Rate ({latestMonth.label})</p>
+                  <div className="flex items-baseline gap-4 mt-2">
+                     <p className="text-6xl font-black text-blue-900 dark:text-blue-100 font-sans">{latestMonth.count > 0 ? latestMonth.pct + '%' : 'N/A'}</p>
                   </div>
+                  <p className="text-xs font-bold text-blue-600 dark:text-blue-500 mt-4 tracking-wide leading-relaxed">
+                     Calculation: (Total Points Earned ÷ Maximum Possible Points) × 100
+                  </p>
                 </div>
-                <div>
-                  <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-6 font-serif">Feedback from {latestMonth.label}</h3>
-                  {latestMonth.comments.length === 0 ? ( <p className="text-slate-500 dark:text-slate-400 italic text-lg">No written feedback this month.</p> ) : (
-                    <div className="space-y-4">
-                      {latestMonth.comments.map((c, i) => (
-                        <div key={i} className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-4 shadow-sm hover:bg-white dark:hover:bg-slate-900 transition-colors">
-                           <div className="shrink-0">{c.type === 'improvement' ? <AlertTriangle className="w-8 h-8 text-amber-500" /> : <ThumbsUp className="w-8 h-8 text-blue-500" />}</div>
-                           <div className="w-full">
-                              <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed font-sans mb-4">"{c.text}"</p>
-                              <div className="flex flex-wrap gap-4 text-sm border-t border-slate-200 dark:border-slate-700 pt-3">
-                                 <span className="text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleString()}</span>
-                                 <span className="text-slate-700 dark:text-slate-300 font-bold bg-white dark:bg-slate-800 px-2 py-0.5 rounded shadow-sm border border-slate-100 dark:border-slate-700">Room: <span className="text-blue-600 dark:text-blue-400">{c.room}</span></span>
-                              </div>
-                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-8 rounded-3xl shadow-sm">
+                   <p className="text-slate-600 dark:text-slate-400 font-bold font-sans uppercase tracking-wide text-sm mb-4">Legend / Scoring Guide</p>
+                   <ul className="space-y-3 text-slate-700 dark:text-slate-300 font-medium">
+                      <li className="flex items-center gap-3"><span className="text-2xl">😁</span> <span>Happy (3 Points)</span></li>
+                      <li className="flex items-center gap-3"><span className="text-2xl">😐</span> <span>Neutral (2 Points)</span></li>
+                      <li className="flex items-center gap-3"><span className="text-2xl">😢</span> <span>Sad (1 Point)</span></li>
+                   </ul>
                 </div>
               </div>
-            )}
+
+              {/* Historical Trend */}
+              <div>
+                <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-6 font-serif">Historical Trend (Satisfaction %)</h3>
+                <div className="flex items-end gap-2 sm:gap-4 h-64 border-b-4 border-slate-100 dark:border-slate-700 pb-2 font-sans">
+                  {monthlyData.map((m, i) => { 
+                    const isCurrent = m.key === currentMonthKey;
+                    const heightPct = m.count === 0 ? 0 : Math.max(m.pct, 5); 
+                    return (
+                      <div key={i} className="flex flex-col items-center flex-1 h-full justify-end relative">
+                        <div className={`flex flex-col items-center mb-2`}>
+                           <span className={`text-sm sm:text-lg font-black ${isCurrent ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>{m.count === 0 ? '-' : m.pct + '%'}</span>
+                           {m.count > 0 && <span className="text-[10px] sm:text-xs text-slate-400 font-bold bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full mt-1">Vol: {m.count}</span>}
+                        </div>
+                        <div className={`w-full max-w-[4rem] rounded-t-xl transition-all duration-1000 ${isCurrent ? 'bg-gradient-to-t from-indigo-500 to-indigo-400 shadow-lg' : m.pct < 66 && m.count > 0 ? 'bg-amber-400 dark:bg-amber-500' : 'bg-blue-400 dark:bg-blue-500'}`} style={{ height: `${heightPct}%`, minHeight: m.count > 0 ? '5%' : '4px' }}></div>
+                        <div className={`text-xs font-bold mt-3 uppercase tracking-wider whitespace-nowrap ${isCurrent ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}>{ALL_MONTHS_LABELS[i]}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Comments Section */}
+                <div className="pt-8 border-t border-slate-200 dark:border-slate-700">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                     <h3 className="text-2xl font-black text-slate-800 dark:text-white font-serif">Patient Feedback</h3>
+                     <select className="p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm no-print" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
+                        {monthlyData.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                     </select>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    
+                    {/* Positive */}
+                    <div className="border-2 border-green-200 dark:border-green-900/50 rounded-3xl overflow-hidden">
+                       <div className="bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-400 p-4 px-6 font-black text-lg flex justify-between items-center border-b border-green-200 dark:border-green-900/50">
+                          <span className="flex items-center gap-2"><ThumbsUp className="w-5 h-5"/> Positive Feedback</span>
+                          <span className="text-sm bg-green-200 dark:bg-green-800 px-2 py-1 rounded-lg">{selectedMonthData.positive.length}</span>
+                       </div>
+                       <div className="p-4 space-y-4 bg-slate-50/50 dark:bg-slate-900/20 min-h-[300px]">
+                          {selectedMonthData.positive.length === 0 ? <p className="text-slate-500 dark:text-slate-400 italic text-center mt-10">No positive feedback recorded.</p> : selectedMonthData.positive.map((c, i) => (
+                             <div key={i} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                                <p className="text-slate-800 dark:text-white font-medium mb-3">"{c.text}"</p>
+                                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-bold border-t border-slate-100 dark:border-slate-700 pt-3 mt-3">
+                                   <span>{new Date(c.date).toLocaleDateString()}</span>
+                                   <div className="flex items-center gap-2">
+                                     <span className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded shadow-sm border border-green-200 dark:border-green-800/50">{Math.round((c.score/3)*100)}%</span>
+                                     <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">Room: {c.room}</span>
+                                   </div>
+                                </div>
+                             </div>
+                          ))}
+                       </div>
+                    </div>
+
+                    {/* Negative */}
+                    <div className="border-2 border-red-200 dark:border-red-900/50 rounded-3xl overflow-hidden">
+                       <div className="bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-400 p-4 px-6 font-black text-lg flex justify-between items-center border-b border-red-200 dark:border-red-900/50">
+                          <span className="flex items-center gap-2"><AlertTriangle className="w-5 h-5"/> Areas for Improvement</span>
+                          <span className="text-sm bg-red-200 dark:bg-red-800 px-2 py-1 rounded-lg">{selectedMonthData.negative.length}</span>
+                       </div>
+                       <div className="p-4 space-y-4 bg-slate-50/50 dark:bg-slate-900/20 min-h-[300px]">
+                          {selectedMonthData.negative.length === 0 ? <p className="text-slate-500 dark:text-slate-400 italic text-center mt-10">No negative feedback recorded.</p> : selectedMonthData.negative.map((c, i) => (
+                             <div key={i} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                                <p className="text-slate-800 dark:text-white font-medium mb-3">"{c.text}"</p>
+                                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-bold border-t border-slate-100 dark:border-slate-700 pt-3 mt-3">
+                                   <span>{new Date(c.date).toLocaleDateString()}</span>
+                                   <div className="flex items-center gap-2">
+                                     <span className="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 px-2 py-0.5 rounded shadow-sm border border-red-200 dark:border-red-800/50">{Math.round((c.score/3)*100)}%</span>
+                                     <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">Room: {c.room}</span>
+                                   </div>
+                                </div>
+                             </div>
+                          ))}
+                       </div>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
           </div>
         </div>
       );
     }
 
-    // --- PRINTABLE QR GENERATOR COMPONENT ---
     function QRGenerator() {
       const currentUrl = window.location.href.split('?')[0]; 
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(currentUrl)}`;
@@ -1364,13 +1562,12 @@
                 <div className="bg-white p-6 rounded-3xl shadow-xl border-4 border-blue-500 mb-10"><img src={qrUrl} alt="QR Code" className="w-64 h-64 sm:w-80 sm:h-80 object-contain" /></div>
                 <div className="text-slate-400 font-bold text-lg flex items-center gap-2"><span className="w-16 h-px bg-slate-300 dark:bg-slate-700"></span> Thank You <span className="w-16 h-px bg-slate-300 dark:bg-slate-700"></span></div>
               </div>
-              <div className="absolute bottom-8 right-8 text-sm font-bold text-slate-400 tracking-widest bg-white/80 dark:bg-slate-800/80 px-2 py-1 rounded">{FORM_CONTROL_NO}</div>
+              <div className="absolute bottom-8 left-8 text-sm font-bold text-slate-400 tracking-widest bg-white/80 dark:bg-slate-800/80 px-2 py-1 rounded">{FORM_CONTROL_NO}</div>
            </div>
         </div>
       );
     }
 
-    // --- MOUNT THE APP ---
     const root = createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
