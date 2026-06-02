@@ -230,7 +230,7 @@
 
       const handleSurveySubmit = async (surveyData) => {
         setIsSubmitting(true);
-        const finalData = { ...surveyData, timestamp: new Date().toISOString(), id: Date.now().toString() };
+        const finalData = { ...surveyData, timestamp: new Date().toLocaleString(), id: Date.now().toString() };
         
         // Populate titles so the backend creates tabs correctly
         Object.keys(finalData.departments).forEach(id => {
@@ -1069,19 +1069,24 @@
       const liveDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       const currentMonthKey = getMonthString(new Date());
 
-      const handleCensusChange = (val) => {
-        const newData = { ...censusData, [currentMonthKey]: val };
-        setCensusData(newData);
-      };
+      // NEW: Separate state for drafting the census before saving
+      const [draftCensus, setDraftCensus] = useState(censusData[currentMonthKey] || '');
+      useEffect(() => {
+         setDraftCensus(censusData[currentMonthKey] || '');
+      }, [censusData, currentMonthKey]);
 
       const handleCensusSave = async () => {
          setIsSavingCensus(true);
+         // Apply draft to actual censusData locally so the dashboard instantly updates
+         const newData = { ...censusData, [currentMonthKey]: draftCensus };
+         setCensusData(newData);
+         
          try {
            await fetch(APPS_SCRIPT_URL, {
              method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ action: "update_census", monthKey: currentMonthKey, censusValue: censusData[currentMonthKey] })
+             body: JSON.stringify({ action: "update_census", monthKey: currentMonthKey, censusValue: draftCensus })
            });
-           localStorage.setItem('tdmh_census', JSON.stringify(censusData));
+           localStorage.setItem('tdmh_census', JSON.stringify(newData));
          } catch(e) { console.error("Error saving census:", e); }
          setIsSavingCensus(false);
       }
@@ -1274,22 +1279,27 @@
                   <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-sm hover:border-blue-300 transition-colors relative flex flex-col justify-between">
                     <div>
                       <p className="text-slate-500 dark:text-slate-400 font-bold mb-1 uppercase tracking-wide text-sm">Total Census</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mb-4 leading-tight">Total patients admitted or visited (This Month)</p>
-                      <input 
-                          type="number" 
-                          min="0"
-                          value={censusData[currentMonthKey] || ''} 
-                          onChange={(e) => handleCensusChange(e.target.value)} 
-                          className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-800 dark:text-white w-full border-b-2 border-slate-100 dark:border-slate-600 focus:border-blue-500 outline-none pb-2 bg-transparent transition-colors truncate" 
-                          placeholder="Enter amount..." 
-                      />
-                    </div>
-                    <div className="flex items-center justify-between mt-6">
-                       <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Manual Input</p>
-                       <button onClick={handleCensusSave} disabled={isSavingCensus} className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/60 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-800 dark:text-blue-300 px-4 py-2 rounded-xl font-bold text-xs transition-colors disabled:opacity-50 no-print shadow-sm">
-                          {isSavingCensus ? <RefreshCw className="w-3 h-3 animate-spin"/> : <Save className="w-3 h-3"/>}
-                          {isSavingCensus ? 'Saving...' : 'Save Data'}
-                       </button>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mb-2 leading-tight">Total patients admitted or visited (This Month)</p>
+                      <p className="text-4xl sm:text-5xl font-black text-slate-800 dark:text-white truncate mb-4">
+                        {censusData[currentMonthKey] || 0}
+                      </p>
+                      
+                      <div className="border-t border-slate-100 dark:border-slate-700 pt-4 mt-2">
+                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Update Value</p>
+                        <div className="flex items-center gap-2">
+                          <input 
+                              type="number" 
+                              min="0"
+                              value={draftCensus} 
+                              onChange={(e) => setDraftCensus(e.target.value)} 
+                              className="text-lg font-bold text-slate-800 dark:text-white w-full border-2 border-slate-200 dark:border-slate-600 focus:border-blue-500 rounded-xl px-3 py-2 outline-none bg-slate-50 dark:bg-slate-900 transition-colors" 
+                              placeholder="New census..." 
+                          />
+                          <button onClick={handleCensusSave} disabled={isSavingCensus || String(draftCensus) === String(censusData[currentMonthKey] || '')} className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 text-white p-3 rounded-xl font-bold transition-colors no-print shadow-sm shrink-0" title="Save Census">
+                             {isSavingCensus ? <RefreshCw className="w-5 h-5 animate-spin"/> : <Save className="w-5 h-5"/>}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   {/* Total Responses */}
