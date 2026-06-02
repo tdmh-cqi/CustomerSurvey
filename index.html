@@ -42,7 +42,8 @@
       ClipboardList, LayoutDashboard, ChevronRight, SkipForward, 
       ThumbsUp, MessageSquare, Star, ArrowLeft, Settings, 
       UserCheck, AlertTriangle, Send, Lock, BarChart, QrCode, Printer, 
-      BarChart3, Plus, Edit2, TrendingUp, TrendingDown, HeartHandshake, X, CalendarDays, RefreshCw, Save, Check, Moon, Sun
+      BarChart3, Plus, Edit2, TrendingUp, TrendingDown, HeartHandshake, X, CalendarDays, RefreshCw, Save, Check, Moon, Sun,
+      LogOut, Inbox, Scale
     } from 'lucide-react';
 
     // --- CONFIGURATION & EXTERNAL ASSETS ---
@@ -102,8 +103,7 @@
         return flat;
     };
 
-    // V8 triggers cache clear so the new sub-department structures apply cleanly.
-    const VERSION_KEY = "tdmh_system_v8";
+    const VERSION_KEY = "tdmh_system_v9";
 
     function App() {
       const [view, setView] = useState('home'); 
@@ -113,6 +113,18 @@
       const [isSyncing, setIsSyncing] = useState(false);
       const [drillDown, setDrillDown] = useState(null); 
       
+      // PERSISTENT LOGIN STATE
+      const [authUser, setAuthUser] = useState(() => {
+         try { return JSON.parse(localStorage.getItem('tdmh_auth')) || null; } catch(e) { return null; }
+      });
+      const [loginToast, setLoginToast] = useState(null);
+
+      // MANUAL COMMENT CATEGORIES STATE
+      const [commentCats, setCommentCats] = useState(() => {
+         try { return JSON.parse(localStorage.getItem('tdmh_comment_cats')) || {}; } catch(e) { return {}; }
+      });
+      useEffect(() => localStorage.setItem('tdmh_comment_cats', JSON.stringify(commentCats)), [commentCats]);
+
       const [isDark, setIsDark] = useState(() => {
         const savedTheme = localStorage.getItem('tdmh_theme');
         return savedTheme === 'dark';
@@ -249,6 +261,12 @@
         window.scrollTo({ top: 0, behavior: 'instant' });
       }
 
+      const handleLogout = () => {
+         setAuthUser(null);
+         localStorage.removeItem('tdmh_auth');
+         setView('home');
+      }
+
       return (
         <div className={`min-h-screen transition-colors duration-500 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 selection:bg-blue-200 dark:selection:bg-blue-800 relative pro-font flex flex-col ${(drillDown || showSuccess) ? 'overflow-hidden' : ''}`}>
           <style dangerouslySetInnerHTML={{__html: `
@@ -282,17 +300,25 @@
             }
 
             @media print {
-              body * { visibility: hidden; }
+              @page { size: letter portrait; margin: 0.5in; }
+              body * { visibility: hidden; background: white; }
               body.printing-modal .print-modal-content, body.printing-modal .print-modal-content * { visibility: visible; }
               body.printing-modal .print-modal-content { position: absolute; left: 0; top: 0; width: 100%; height: auto; box-shadow: none; border: none; }
-              body:not(.printing-modal) .print-dashboard, body:not(.printing-modal) .print-dashboard * { visibility: visible; }
-              body:not(.printing-modal) .print-dashboard { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; }
+              body:not(.printing-modal) .print-dashboard, body:not(.printing-modal) .print-dashboard * { visibility: visible; color: black !important; }
+              body:not(.printing-modal) .print-dashboard { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; background: white !important; box-shadow: none !important; }
               .no-print { display: none !important; }
             }
           `}} />
 
           {drillDown && <style>{`body { class: "printing-modal" }`}</style>}
           {!drillDown && <style>{`body { class: "" }`}</style>}
+
+          {/* GLOBAL TOAST NOTIFICATION */}
+          {loginToast && (
+             <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[100] bg-green-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 font-sans font-bold">
+                <Check className="w-5 h-5"/> {loginToast}
+             </div>
+          )}
 
           <div className="fixed inset-0 z-0 pointer-events-none transition-colors duration-700">
              <div className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-700 ${isDark ? 'opacity-[0.15] mix-blend-luminosity' : 'opacity-20 mix-blend-multiply'}`} style={{ backgroundImage: `url('${BACKGROUND_URL}')` }} />
@@ -327,14 +353,28 @@
                 </div>
                 <div className="flex-1 flex justify-end items-center gap-4 pr-16 sm:pr-20"> 
                   {view === 'home' && (
-                    <button onClick={() => setView('login')} className="text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-blue-700 dark:hover:text-blue-400 flex items-center gap-2 px-3 py-2 rounded-xl transition-all hover:bg-blue-50 dark:hover:bg-slate-800 shadow-sm bg-white dark:bg-slate-800 border border-transparent dark:border-slate-700">
-                      <Lock className="w-4 h-4" /> <span className="hidden lg:inline">Staff Portal</span>
+                    <button onClick={() => {
+                       if (authUser) {
+                          if (authUser.role === 'admin') setView('admin');
+                          else { setActiveDeptId(authUser.id); setView('dept'); }
+                       } else {
+                          setView('login');
+                       }
+                    }} className="text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-blue-700 dark:hover:text-blue-400 flex items-center gap-2 px-3 py-2 rounded-xl transition-all hover:bg-blue-50 dark:hover:bg-slate-800 shadow-sm bg-white dark:bg-slate-800 border border-transparent dark:border-slate-700">
+                      <Lock className="w-4 h-4" /> <span className="hidden lg:inline">{authUser ? `Dashboard (${authUser.name})` : "Staff Portal"}</span>
                     </button>
                   )}
                   {view !== 'home' && (
-                    <button onClick={() => setView('home')} className="text-sm font-bold text-blue-800 dark:text-blue-200 hover:text-white dark:hover:text-white hover:bg-blue-600 dark:hover:bg-blue-600 flex items-center gap-2 bg-blue-100 dark:bg-blue-900/50 px-5 py-2.5 rounded-xl transition-all shadow-sm">
-                      <ArrowLeft className="w-5 h-5" /> HOME
-                    </button>
+                    <div className="flex items-center gap-2">
+                       <button onClick={() => setView('home')} className="text-sm font-bold text-blue-800 dark:text-blue-200 hover:text-white dark:hover:text-white hover:bg-blue-600 dark:hover:bg-blue-600 flex items-center gap-2 bg-blue-100 dark:bg-blue-900/50 px-4 py-2.5 rounded-xl transition-all shadow-sm">
+                         <ArrowLeft className="w-5 h-5" /> <span className="hidden sm:inline">HOME</span>
+                       </button>
+                       {authUser && (view === 'admin' || view === 'dept') && (
+                         <button onClick={handleLogout} className="text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-2.5 rounded-xl transition-all shadow-sm border border-slate-200 dark:border-slate-700 hover:border-red-200 dark:hover:border-red-900" title="Log Out">
+                           <LogOut className="w-4 h-4" />
+                         </button>
+                       )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -344,9 +384,9 @@
           <main className={`max-w-5xl mx-auto w-full relative z-10 flex-grow transition-all duration-300 ${view === 'survey' ? 'p-0 sm:p-6 lg:p-8 mt-16 sm:mt-0' : 'p-4 sm:p-6 lg:p-8'}`}>
             {view === 'home' && <HomeView setView={setView} />}
             {view === 'survey' && <PatientSurvey onSubmit={handleSurveySubmit} activeDepartments={activeDepartments} departments={departments} isSubmitting={isSubmitting} setView={setView} />}
-            {view === 'login' && <LoginSelectView setView={setView} setActiveDeptId={setActiveDeptId} departments={departments} flatDepartments={flatDepartments} />}
-            {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} flatDepartments={flatDepartments} drillDown={drillDown} setDrillDown={setDrillDown} />}
-            {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} flatDepartments={flatDepartments} />}
+            {view === 'login' && <LoginSelectView setView={setView} setActiveDeptId={setActiveDeptId} departments={departments} flatDepartments={flatDepartments} setAuthUser={setAuthUser} setLoginToast={setLoginToast} />}
+            {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} flatDepartments={flatDepartments} drillDown={drillDown} setDrillDown={setDrillDown} commentCats={commentCats} setCommentCats={setCommentCats} />}
+            {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} flatDepartments={flatDepartments} commentCats={commentCats} setCommentCats={setCommentCats} />}
             {view === 'qr' && <QRGenerator />}
           </main>
 
@@ -358,6 +398,112 @@
           {showSuccess && <SuccessModal onClose={handleCloseSuccess} />}
         </div>
       );
+    }
+
+    // --- SHARED COMMENT MANAGER UI ---
+    function CommentManager({ comments, commentCats, setCommentCats, selectedMonth, onMonthChange, monthsList, showDeptFilter, flatDepartments, selectedDept, onDeptChange }) {
+       const [catTab, setCatTab] = useState('inbox');
+
+       const handleSetCat = (id, category) => {
+          setCommentCats(prev => {
+             const updated = { ...prev };
+             if (category === 'uncategorized') delete updated[id];
+             else updated[id] = category;
+             return updated;
+          });
+       };
+
+       // Filter by category
+       const inboxList = comments.filter(c => !commentCats[c.id]);
+       const posList = comments.filter(c => commentCats[c.id] === 'positive');
+       const mixList = comments.filter(c => commentCats[c.id] === 'mixed');
+       const negList = comments.filter(c => commentCats[c.id] === 'negative');
+
+       // Map tab to list
+       const currentList = catTab === 'inbox' ? inboxList : catTab === 'positive' ? posList : catTab === 'mixed' ? mixList : negList;
+
+       return (
+         <div className="space-y-8 animate-in slide-in-from-bottom-2 no-print font-sans">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col sm:flex-row gap-6 transition-colors items-end">
+               <div className="flex-1 w-full">
+                  <label className="block text-slate-500 dark:text-slate-400 font-black text-sm mb-3 uppercase tracking-widest">Filter by Month</label>
+                  <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors text-lg" value={selectedMonth} onChange={e => onMonthChange(e.target.value)}>
+                     {monthsList.map((mk, i) => <option key={mk} value={mk}>{ALL_MONTHS_LABELS[parseInt(mk.split('-')[1])-1]} {mk.split('-')[0]}</option>)}
+                  </select>
+               </div>
+               {showDeptFilter && (
+                 <div className="flex-1 w-full">
+                    <label className="block text-slate-500 dark:text-slate-400 font-black text-sm mb-3 uppercase tracking-widest">Filter by Department</label>
+                    <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors text-lg" value={selectedDept} onChange={e => onDeptChange(e.target.value)}>
+                       <option value="all">All Departments</option>
+                       {flatDepartments.map(d => <option key={d.id} value={d.id}>{d.type === 'sub' ? `— ${d.title}` : d.title}</option>)}
+                    </select>
+                 </div>
+               )}
+            </div>
+
+            {/* TAB SELECTORS */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+               <button onClick={() => setCatTab('inbox')} className={`p-4 rounded-2xl border-2 font-black text-lg transition-all flex items-center justify-center gap-2 ${catTab === 'inbox' ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400'}`}>
+                  <Inbox className="w-5 h-5"/> Inbox
+                  {inboxList.length > 0 && <span className={`px-2 py-0.5 text-xs rounded-full ${catTab === 'inbox' ? 'bg-white text-slate-800' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>{inboxList.length}</span>}
+               </button>
+               <button onClick={() => setCatTab('positive')} className={`p-4 rounded-2xl border-2 font-black text-lg transition-all flex items-center justify-center gap-2 ${catTab === 'positive' ? 'bg-green-500 border-green-500 text-white' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-green-300'}`}>
+                  <ThumbsUp className="w-5 h-5"/> Positive
+                  {posList.length > 0 && <span className={`px-2 py-0.5 text-xs rounded-full ${catTab === 'positive' ? 'bg-white text-green-700' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>{posList.length}</span>}
+               </button>
+               <button onClick={() => setCatTab('mixed')} className={`p-4 rounded-2xl border-2 font-black text-lg transition-all flex items-center justify-center gap-2 ${catTab === 'mixed' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-amber-300'}`}>
+                  <Scale className="w-5 h-5"/> Mixed
+                  {mixList.length > 0 && <span className={`px-2 py-0.5 text-xs rounded-full ${catTab === 'mixed' ? 'bg-white text-amber-700' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>{mixList.length}</span>}
+               </button>
+               <button onClick={() => setCatTab('negative')} className={`p-4 rounded-2xl border-2 font-black text-lg transition-all flex items-center justify-center gap-2 ${catTab === 'negative' ? 'bg-red-500 border-red-500 text-white' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-red-300'}`}>
+                  <AlertTriangle className="w-5 h-5"/> Negative
+                  {negList.length > 0 && <span className={`px-2 py-0.5 text-xs rounded-full ${catTab === 'negative' ? 'bg-white text-red-700' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>{negList.length}</span>}
+               </button>
+            </div>
+
+            {/* LIST AREA */}
+            <div className="bg-slate-100/50 dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 min-h-[400px]">
+               {currentList.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 min-h-[300px]">
+                     <MessageSquare className="w-12 h-12 mb-4 opacity-20"/>
+                     <p className="font-bold text-lg">No comments in this category.</p>
+                  </div>
+               ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     {currentList.map(c => (
+                        <div key={c.id} className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
+                           <div>
+                              {showDeptFilter && selectedDept === 'all' && (
+                                <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-3 py-1 rounded-lg font-black text-xs mb-4 inline-block uppercase tracking-wider">{c.deptName}</div>
+                              )}
+                              <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed mb-4">"{c.text}"</p>
+                              <div className="flex flex-wrap items-center gap-3 text-sm mb-6 border-t border-slate-100 dark:border-slate-700 pt-4">
+                                 <span className="text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleDateString()}</span>
+                                 <span className="font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">Room: {c.room}</span>
+                                 {c.score > 0 && <span className="font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">Avg Score: {c.score.toFixed(1)}</span>}
+                              </div>
+                           </div>
+                           
+                           {/* CATEGORIZATION ACTION BAR */}
+                           <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                              <p className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest text-center">Categorize As:</p>
+                              <div className="flex gap-2">
+                                 <button onClick={() => handleSetCat(c.id, 'positive')} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-colors ${commentCats[c.id] === 'positive' ? 'bg-green-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-green-50 dark:hover:bg-green-900/30 hover:text-green-600 dark:hover:text-green-400'}`}>👍 Pos</button>
+                                 <button onClick={() => handleSetCat(c.id, 'mixed')} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-colors ${commentCats[c.id] === 'mixed' ? 'bg-amber-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-600 dark:hover:text-amber-400'}`}>⚖️ Mix</button>
+                                 <button onClick={() => handleSetCat(c.id, 'negative')} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-colors ${commentCats[c.id] === 'negative' ? 'bg-red-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400'}`}>👎 Neg</button>
+                              </div>
+                              {commentCats[c.id] && (
+                                <button onClick={() => handleSetCat(c.id, 'uncategorized')} className="w-full mt-2 py-1 text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">Clear Category (Send to Inbox)</button>
+                              )}
+                           </div>
+                        </div>
+                     ))}
+                  </div>
+               )}
+            </div>
+         </div>
+       )
     }
 
     function HomeView({ setView }) {
@@ -396,7 +542,7 @@
       )
     }
 
-    function LoginSelectView({ setView, setActiveDeptId, departments, flatDepartments }) {
+    function LoginSelectView({ setView, setActiveDeptId, departments, flatDepartments, setAuthUser, setLoginToast }) {
       const [selectedDept, setSelectedDept] = useState(flatDepartments[0].id);
       const [loginType, setLoginType] = useState(null); 
       const [password, setPassword] = useState('');
@@ -418,6 +564,15 @@
           
           if (data.success) {
               setError('');
+              
+              // CREATE PERSISTENT SESSION
+              const userObj = { role: loginType, id: id, name: name };
+              setAuthUser(userObj);
+              localStorage.setItem('tdmh_auth', JSON.stringify(userObj));
+              
+              setLoginToast(`Successfully logged in as ${name}`);
+              setTimeout(() => setLoginToast(null), 4000);
+
               if (loginType === 'admin') setView('admin'); else { setActiveDeptId(selectedDept); setView('dept'); }
           } else {
               setError(data.message || 'Incorrect Password');
@@ -787,16 +942,14 @@
                                     </button>
                                  </div>
                                  {/* Specific comment box for this specific service */}
-                                 {ans && (
-                                   <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
-                                     <textarea 
-                                        onChange={(e) => handleServiceComment(dept.id, svc, e.target.value)} 
-                                        className="w-full border-2 border-slate-200 dark:border-slate-700 focus:border-blue-400 dark:focus:border-blue-500 rounded-2xl p-4 sm:p-5 outline-none resize-none bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-900 text-slate-700 dark:text-white font-medium transition-colors" 
-                                        rows="2" 
-                                        placeholder={`Any comments or suggestions for ${svc}? (Optional)`}
-                                     ></textarea>
-                                   </div>
-                                 )}
+                                 <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
+                                   <textarea 
+                                      onChange={(e) => handleServiceComment(dept.id, svc, e.target.value)} 
+                                      className="w-full border-2 border-slate-200 dark:border-slate-700 focus:border-blue-400 dark:focus:border-blue-500 rounded-2xl p-4 sm:p-5 outline-none resize-none bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-900 text-slate-700 dark:text-white font-medium transition-colors" 
+                                      rows="2" 
+                                      placeholder={`Any comments or suggestions for ${svc}? (Optional)`}
+                                   ></textarea>
+                                 </div>
                               </div>
                             )
                          })}
@@ -835,7 +988,7 @@
                     })}
 
                     {/* OPTIONAL COMMENT for Standard Departments */}
-                    {dept.type !== 'checkbox' && Object.keys(surveyData.departments[dept.id]?.answers || {}).length > 0 && (
+                    {dept.type !== 'checkbox' && (
                       <div className="pt-4 border-t border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
                         <textarea 
                            onChange={(e) => handleComment(dept.id, e.target.value)} 
@@ -904,7 +1057,7 @@
       );
     }
 
-    function AdminDashboard({ responses, censusData, setCensusData, activeDepartments, setActiveDepartments, departments, setDepartments, flatDepartments, drillDown, setDrillDown }) {
+    function AdminDashboard({ responses, censusData, setCensusData, activeDepartments, setActiveDepartments, departments, setDepartments, flatDepartments, drillDown, setDrillDown, commentCats, setCommentCats }) {
       const [activeTab, setActiveTab] = useState('overview'); 
       const [newDeptName, setNewDeptName] = useState('');
       const [newQuestions, setNewQuestions] = useState({});
@@ -943,8 +1096,7 @@
         let totalScore = 0; let totalQuestionsAnswered = 0;
         const deptStats = {};
         
-        // Use flatDepartments to build the grids gracefully
-        flatDepartments.forEach(d => deptStats[d.id] = { comments: [], monthly: {} });
+        flatDepartments.forEach(d => deptStats[d.id] = { monthly: {} });
         allMonthsKeys.forEach(mk => {
            flatDepartments.forEach(d => deptStats[d.id].monthly[mk] = { score: 0, count: 0 });
         });
@@ -960,10 +1112,11 @@
 
         let responsesThisMonthCount = 0;
         
+        // Uncategorized Collection pool instead of pre-sorted
         const structuredComments = {}; 
         flatDepartments.forEach(d => structuredComments[d.id] = {});
         allMonthsKeys.forEach(mk => {
-          flatDepartments.forEach(d => structuredComments[d.id][mk] = { positive: [], negative: [] });
+          flatDepartments.forEach(d => structuredComments[d.id][mk] = { comments: [] });
         });
 
         responses.forEach(res => {
@@ -1010,10 +1163,13 @@
               const avgResScore = resCount > 0 ? (resScore/resCount) : 0;
               if (data.comment && data.comment.trim() !== '') {
                 allCommentsText += " " + data.comment;
-                const cmtObj = { text: data.comment, date: res.timestamp, score: avgResScore, room: res.general?.room_number || 'Unknown' };
+                // GENERATE UNIQUE ID for mapping categories
+                const fallbackTime = new Date(res.timestamp).getTime();
+                const uniqueId = `${res.id || fallbackTime}_${deptId}`;
+                
+                const cObj = { id: uniqueId, text: data.comment, date: res.timestamp, score: avgResScore, room: res.general?.room_number || 'Unknown' };
                 if (structuredComments[deptId] && structuredComments[deptId][resMonth]) {
-                   if (avgResScore >= 2.0) structuredComments[deptId][resMonth].positive.push(cmtObj);
-                   else structuredComments[deptId][resMonth].negative.push(cmtObj);
+                   structuredComments[deptId][resMonth].comments.push(cObj);
                 }
               }
             }
@@ -1070,6 +1226,19 @@
       const currentCensus = parseInt(censusData[currentMonthKey]) || 0;
       const currentResponseRate = currentCensus > 0 ? ((analytics.responsesThisMonthCount / currentCensus) * 100).toFixed(1) : 0;
 
+      // Extract unified comments list for CommentManager
+      let allSelectedComments = [];
+      if (selectedCommentDept === 'all') {
+         flatDepartments.forEach(d => {
+            if (analytics.structuredComments[d.id]?.[selectedCommentMonth]) {
+               allSelectedComments = allSelectedComments.concat(analytics.structuredComments[d.id][selectedCommentMonth].comments.map(c => ({...c, deptName: d.title})));
+            }
+         });
+      } else {
+         allSelectedComments = (analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.comments || []).map(c => ({...c, deptName: flatDepartments.find(d=>d.id===selectedCommentDept)?.title}));
+      }
+      allSelectedComments.sort((a,b) => new Date(b.date) - new Date(a.date));
+
       return (
         <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md sm:rounded-[2rem] shadow-2xl border border-white dark:border-slate-700/50 overflow-hidden min-h-[75vh] animate-in fade-in duration-500 font-sans print-dashboard relative">
           <div className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white p-6 sm:p-12 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden shrink-0 transition-colors">
@@ -1111,7 +1280,7 @@
                           min="0"
                           value={censusData[currentMonthKey] || ''} 
                           onChange={(e) => handleCensusChange(e.target.value)} 
-                          className="text-4xl sm:text-5xl font-black text-slate-800 dark:text-white w-full border-b-2 border-slate-100 dark:border-slate-600 focus:border-blue-500 outline-none pb-2 bg-transparent transition-colors" 
+                          className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-800 dark:text-white w-full border-b-2 border-slate-100 dark:border-slate-600 focus:border-blue-500 outline-none pb-2 bg-transparent transition-colors truncate" 
                           placeholder="Enter amount..." 
                       />
                     </div>
@@ -1128,7 +1297,7 @@
                     <div>
                       <p className="text-blue-800 dark:text-blue-400 font-bold mb-1 uppercase tracking-wide text-sm">Total Responses</p>
                       <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mb-4 leading-tight">Surveys successfully submitted (This Month)</p>
-                      <p className="text-5xl sm:text-6xl font-black text-blue-900 dark:text-blue-200">{analytics.responsesThisMonthCount}</p>
+                      <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-blue-900 dark:text-blue-200 truncate">{analytics.responsesThisMonthCount}</p>
                     </div>
                     <p className="text-[10px] font-bold text-blue-600 dark:text-blue-500 mt-6 uppercase tracking-widest">Automated Count</p>
                   </div>
@@ -1137,7 +1306,7 @@
                     <div>
                        <p className="text-emerald-800 dark:text-emerald-400 font-bold mb-1 uppercase tracking-wide text-sm">Response Rate</p>
                        <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mb-4 leading-tight">Percentage of patients who answered</p>
-                       <p className="text-5xl sm:text-6xl font-black text-emerald-900 dark:text-emerald-200">{currentResponseRate}%</p>
+                       <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-emerald-900 dark:text-emerald-200 truncate">{currentResponseRate}%</p>
                     </div>
                     <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-500 mt-6 uppercase tracking-widest">
                        (Total Responses ÷ Total Census)
@@ -1148,7 +1317,7 @@
                     <div>
                        <p className="text-indigo-800 dark:text-indigo-400 font-bold mb-1 uppercase tracking-wide text-sm">Satisfaction Rate</p>
                        <p className="text-xs text-indigo-600/70 dark:text-indigo-400/70 mb-4 leading-tight">Overall quality of care rating</p>
-                       <p className="text-5xl sm:text-6xl font-black text-indigo-900 dark:text-indigo-200">{analytics.overallSatPct}%</p>
+                       <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-indigo-900 dark:text-indigo-200 truncate">{analytics.overallSatPct}%</p>
                     </div>
                     <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-500 mt-6 uppercase tracking-widest">
                        (Points Earned ÷ Max Possible)
@@ -1254,29 +1423,29 @@
                  </div>
 
                  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm overflow-hidden flex flex-col transition-colors">
-                   <div className="overflow-x-auto custom-scrollbar pb-2">
-                     <table className="w-full text-left border-collapse min-w-[1200px]">
+                   <div className="overflow-x-auto custom-scrollbar pb-2 print:overflow-visible">
+                     <table className="w-full text-left border-collapse min-w-[1200px] print:min-w-0 print:w-full">
                        <thead>
-                         <tr className="bg-slate-900 dark:bg-slate-950 text-white font-bold text-sm tracking-wide uppercase">
-                           <th className="p-5 border-b border-slate-700 sticky left-0 bg-slate-900 dark:bg-slate-950 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.5)] w-64">Department Name</th>
-                           {ALL_MONTHS_LABELS.map(label => <th key={label} className="p-5 border-b border-slate-700 text-center w-24">{label}</th>)}
+                         <tr className="bg-slate-900 dark:bg-slate-950 text-white font-bold text-sm tracking-wide uppercase print:text-[8px] print:bg-transparent print:text-black">
+                           <th className="p-5 print:p-1 border-b border-slate-700 print:border-slate-300 sticky left-0 bg-slate-900 dark:bg-slate-950 print:bg-transparent z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.5)] print:shadow-none w-64 print:w-auto">Department Name</th>
+                           {ALL_MONTHS_LABELS.map(label => <th key={label} className="p-5 print:p-1 border-b border-slate-700 print:border-slate-300 text-center w-24 print:w-auto">{label}</th>)}
                          </tr>
                        </thead>
-                       <tbody className="text-sm font-medium">
+                       <tbody className="text-sm font-medium print:text-[9px]">
                          {analytics.fullYearDeptData.map((dept, index) => (
-                           <tr key={dept.id} className={`group transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/60'} hover:bg-blue-50/50 dark:hover:bg-blue-900/20`}>
-                             <td className={`p-5 sticky left-0 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] transition-colors ${dept.isSub ? 'pl-10 text-slate-600 dark:text-slate-300' : 'font-bold text-slate-800 dark:text-white'} ${index % 2 === 0 ? 'bg-white dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700' : 'bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700'}`}>
-                                {dept.isSub && <span className="text-slate-400 dark:text-slate-500 mr-2">↳</span>}
+                           <tr key={dept.id} className={`group transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-slate-800 print:bg-transparent' : 'bg-slate-50 dark:bg-slate-800/60 print:bg-transparent'} hover:bg-blue-50/50 dark:hover:bg-blue-900/20`}>
+                             <td className={`p-5 print:p-1 sticky left-0 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] print:shadow-none transition-colors ${dept.isSub ? 'pl-10 print:pl-4 text-slate-600 dark:text-slate-300 print:text-slate-600' : 'font-bold text-slate-800 dark:text-white print:text-black'} ${index % 2 === 0 ? 'bg-white dark:bg-slate-800 print:bg-transparent group-hover:bg-blue-50 dark:group-hover:bg-slate-700' : 'bg-slate-50 dark:bg-slate-800 print:bg-transparent group-hover:bg-blue-50 dark:group-hover:bg-slate-700'}`}>
+                                {dept.isSub && <span className="text-slate-400 dark:text-slate-500 print:text-slate-400 mr-2">↳</span>}
                                 {dept.title}
                              </td>
                              {dept.monthlyAverages.map((satPct, i) => {
                                 const isDash = satPct === '-';
-                                const colorClass = isDash ? 'text-slate-300 dark:text-slate-600 font-normal' : satPct < 66 ? 'text-red-600 dark:text-red-400 bg-red-50/30 dark:bg-red-900/10' : 'text-blue-700 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/10';
+                                const colorClass = isDash ? 'text-slate-300 dark:text-slate-600 print:text-slate-400 font-normal' : satPct < 66 ? 'text-red-600 dark:text-red-400 bg-red-50/30 dark:bg-red-900/10 print:bg-transparent print:text-black' : 'text-blue-700 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/10 print:bg-transparent print:text-black';
                                 
                                 return (
-                                  <td key={i} className={`p-4 text-center ${colorClass}`}>
+                                  <td key={i} className={`p-4 print:p-1 text-center ${colorClass}`}>
                                      {isDash ? '-' : (
-                                       <span className="font-black text-lg">{satPct}%</span>
+                                       <span className="font-black text-lg print:text-[9px]">{satPct}%</span>
                                      )}
                                   </td>
                                 )
@@ -1290,113 +1459,20 @@
                </div>
             )}
 
-            {/* 3. COMMENTS & SUGGESTIONS TAB */}
+            {/* 3. COMMENTS & SUGGESTIONS TAB (NEW CATEGORIZATION MANAGER) */}
             {activeTab === 'comments & suggestions' && (
-               <div className="space-y-8 animate-in slide-in-from-bottom-2">
-                 
-                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col sm:flex-row gap-6 no-print items-end transition-colors">
-                    <div className="flex-1 w-full">
-                       <label className="block text-slate-500 dark:text-slate-400 font-black text-sm mb-3 uppercase tracking-widest">Filter by Month</label>
-                       <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-lg" value={selectedCommentMonth} onChange={e => setSelectedCommentMonth(e.target.value)}>
-                          {analytics.allMonthsKeys.map((mk, i) => <option key={mk} value={mk}>{ALL_MONTHS_LABELS[i]} {mk.split('-')[0]}</option>)}
-                       </select>
-                    </div>
-                    <div className="flex-1 w-full">
-                       <label className="block text-slate-500 dark:text-slate-400 font-black text-sm mb-3 uppercase tracking-widest">Filter by Department</label>
-                       <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-lg" value={selectedCommentDept} onChange={e => setSelectedCommentDept(e.target.value)}>
-                          <option value="all">All Departments</option>
-                          {flatDepartments.map(d => <option key={d.id} value={d.id}>{d.type === 'sub' ? `— ${d.title}` : d.title}</option>)}
-                       </select>
-                    </div>
-                 </div>
-
-                 {/* Display Logic for "All" vs Specific */}
-                 {(() => {
-                    let combinedPositive = [];
-                    let combinedNegative = [];
-                    
-                    if (selectedCommentDept === 'all') {
-                       flatDepartments.forEach(d => {
-                          if (analytics.structuredComments[d.id]?.[selectedCommentMonth]) {
-                             combinedPositive = combinedPositive.concat(analytics.structuredComments[d.id][selectedCommentMonth].positive.map(c => ({...c, deptName: d.title})));
-                             combinedNegative = combinedNegative.concat(analytics.structuredComments[d.id][selectedCommentMonth].negative.map(c => ({...c, deptName: d.title})));
-                          }
-                       });
-                    } else {
-                       combinedPositive = (analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.positive || []).map(c => ({...c, deptName: flatDepartments.find(d=>d.id===selectedCommentDept)?.title}));
-                       combinedNegative = (analytics.structuredComments[selectedCommentDept]?.[selectedCommentMonth]?.negative || []).map(c => ({...c, deptName: flatDepartments.find(d=>d.id===selectedCommentDept)?.title}));
-                    }
-                    
-                    combinedPositive.sort((a,b) => new Date(b.date) - new Date(a.date));
-                    combinedNegative.sort((a,b) => new Date(b.date) - new Date(a.date));
-
-                    return (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                        
-                        {/* POSITIVE COLUMN */}
-                        <div className="border-2 border-green-200 dark:border-green-900/50 rounded-[2rem] bg-white dark:bg-slate-800 shadow-sm flex flex-col min-h-[500px] overflow-hidden transition-colors">
-                           <div className="bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 p-6 font-black text-xl flex items-center justify-between border-b-2 border-green-200 dark:border-green-900/50">
-                              <span className="flex items-center gap-3"><ThumbsUp className="w-7 h-7"/> Positive Feedback</span>
-                              <span className="bg-green-200 dark:bg-green-900/60 text-green-900 dark:text-green-300 px-3 py-1.5 rounded-xl text-sm shadow-sm tracking-wide uppercase">{combinedPositive.length} Comments</span>
-                           </div>
-                           <div className="p-6 flex-1 space-y-6 bg-slate-50/50 dark:bg-slate-900/30">
-                              {combinedPositive.length > 0 ? (
-                                 combinedPositive.map((c, i) => (
-                                   <div key={i} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-                                      {selectedCommentDept === 'all' && (
-                                         <div className="bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 px-3 py-1 rounded-lg font-black text-xs mb-4 inline-block uppercase tracking-wider">{c.deptName}</div>
-                                      )}
-                                      <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed font-sans mb-4">"{c.text}"</p>
-                                      <div className="flex flex-wrap justify-between items-center gap-4 border-t border-slate-100 dark:border-slate-700 pt-4">
-                                        <div className="flex flex-col gap-2">
-                                          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleDateString()}</span>
-                                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Room: <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">{c.room}</span></span>
-                                        </div>
-                                      </div>
-                                   </div>
-                                 ))
-                              ) : (
-                                 <div className="flex items-center justify-center h-full min-h-[300px]">
-                                   <p className="text-slate-400 italic font-medium text-lg">No positive comments recorded for this selection.</p>
-                                 </div>
-                              )}
-                           </div>
-                        </div>
-
-                        {/* NEGATIVE COLUMN */}
-                        <div className="border-2 border-red-200 dark:border-red-900/50 rounded-[2rem] bg-white dark:bg-slate-800 shadow-sm flex flex-col min-h-[500px] overflow-hidden transition-colors">
-                           <div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 p-6 font-black text-xl flex items-center justify-between border-b-2 border-red-200 dark:border-red-900/50">
-                              <span className="flex items-center gap-3"><AlertTriangle className="w-7 h-7"/> Areas for Improvement</span>
-                              <span className="bg-red-200 dark:bg-red-900/60 text-red-900 dark:text-red-300 px-3 py-1.5 rounded-xl text-sm shadow-sm tracking-wide uppercase">{combinedNegative.length} Comments</span>
-                           </div>
-                           <div className="p-6 flex-1 space-y-6 bg-slate-50/50 dark:bg-slate-900/30">
-                              {combinedNegative.length > 0 ? (
-                                 combinedNegative.map((c, i) => (
-                                   <div key={i} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-                                      {selectedCommentDept === 'all' && (
-                                         <div className="bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 px-3 py-1 rounded-lg font-black text-xs mb-4 inline-block uppercase tracking-wider">{c.deptName}</div>
-                                      )}
-                                      <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed font-sans mb-4">"{c.text}"</p>
-                                      <div className="flex flex-wrap justify-between items-center gap-4 border-t border-slate-100 dark:border-slate-700 pt-4">
-                                        <div className="flex flex-col gap-2">
-                                          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleDateString()}</span>
-                                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Room: <span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">{c.room}</span></span>
-                                        </div>
-                                      </div>
-                                   </div>
-                                 ))
-                              ) : (
-                                 <div className="flex items-center justify-center h-full min-h-[300px]">
-                                   <p className="text-slate-400 italic font-medium text-lg">No negative comments recorded for this selection.</p>
-                                 </div>
-                              )}
-                           </div>
-                        </div>
-
-                      </div>
-                    )
-                 })()}
-               </div>
+               <CommentManager 
+                 comments={allSelectedComments} 
+                 commentCats={commentCats} 
+                 setCommentCats={setCommentCats} 
+                 selectedMonth={selectedCommentMonth} 
+                 onMonthChange={setSelectedCommentMonth} 
+                 monthsList={analytics.allMonthsKeys}
+                 showDeptFilter={true}
+                 flatDepartments={flatDepartments}
+                 selectedDept={selectedCommentDept}
+                 onDeptChange={setSelectedCommentDept}
+               />
             )}
 
             {/* 4. SETTINGS & EDITOR TAB */}
@@ -1467,7 +1543,7 @@
       );
     }
 
-    function DepartmentDashboard({ responses, deptId, departments, flatDepartments }) {
+    function DepartmentDashboard({ responses, deptId, departments, flatDepartments, commentCats, setCommentCats }) {
       const dept = flatDepartments.find(d => d.id === deptId);
       
       const currentMonthKey = getMonthString(new Date());
@@ -1480,7 +1556,7 @@
         const months = {}; 
         allMonthsKeys.forEach(mk => {
            const d = new Date(mk + "-01");
-           months[mk] = { label: d.toLocaleString('default', { month: 'short', year: 'numeric' }), key: mk, totalScore: 0, count: 0, positive: [], negative: [] };
+           months[mk] = { label: d.toLocaleString('default', { month: 'short', year: 'numeric' }), key: mk, totalScore: 0, count: 0, comments: [] };
         });
 
         responses.forEach(res => {
@@ -1521,9 +1597,11 @@
                 
                 if (commentData && commentData.trim() !== '') {
                    const avg = (localScore/localCount);
-                   const cObj = { text: commentData, date: res.timestamp, score: avg, room: res.general?.room_number || 'Unknown' };
-                   if (avg >= 2.0) months[monthKey].positive.push(cObj);
-                   else months[monthKey].negative.push(cObj);
+                   const fallbackTime = new Date(res.timestamp).getTime();
+                   const uniqueId = `${res.id || fallbackTime}_${deptId}`;
+                   
+                   const cObj = { id: uniqueId, text: commentData, date: res.timestamp, score: avg, room: res.general?.room_number || 'Unknown' };
+                   months[monthKey].comments.push(cObj);
                 }
             }
           }
@@ -1533,12 +1611,14 @@
           const d = months[key];
           const maxPossible = d.count * 3;
           const satPct = maxPossible > 0 ? Math.min(Math.round((d.totalScore / maxPossible) * 100), 100) : 0;
-          return { label: d.label, key: d.key, pct: satPct, count: d.count, positive: d.positive, negative: d.negative };
+          return { label: d.label, key: d.key, pct: satPct, count: d.count, comments: d.comments };
         }); 
       }, [responses, deptId, departments]);
 
-      const selectedMonthData = monthlyData.find(m => m.key === selectedMonth) || { positive: [], negative: [], label: '', pct: 0, count: 0 };
+      const selectedMonthData = monthlyData.find(m => m.key === selectedMonth) || { comments: [], label: '', pct: 0, count: 0 };
       const latestMonth = monthlyData.find(m => m.key === currentMonthKey) || { pct: 0, count: 0, label: 'N/A' };
+      
+      const sortedComments = [...selectedMonthData.comments].sort((a,b) => new Date(b.date) - new Date(a.date));
 
       return (
         <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-700 p-6 sm:p-12 print-dashboard relative transition-colors">
@@ -1556,7 +1636,7 @@
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 p-8 rounded-3xl shadow-sm flex flex-col justify-center">
                   <p className="text-blue-800 dark:text-blue-400 font-bold font-sans uppercase tracking-wide text-sm mb-2">Satisfaction Rate ({latestMonth.label})</p>
                   <div className="flex items-baseline gap-4 mt-2">
-                     <p className="text-6xl font-black text-blue-900 dark:text-blue-100 font-sans">{latestMonth.count > 0 ? latestMonth.pct + '%' : 'N/A'}</p>
+                     <p className="text-4xl sm:text-5xl lg:text-6xl font-black text-blue-900 dark:text-blue-100 font-sans truncate">{latestMonth.count > 0 ? latestMonth.pct + '%' : 'N/A'}</p>
                   </div>
                   <p className="text-xs font-bold text-blue-600 dark:text-blue-500 mt-4 tracking-wide leading-relaxed">
                      Calculation: (Total Points Earned ÷ Maximum Possible Points) × 100
@@ -1593,62 +1673,18 @@
                 </div>
               </div>
               
-              {/* Comments Section */}
+              {/* Comments Section (NEW CATEGORIZATION MANAGER) */}
                 <div className="pt-8 border-t border-slate-200 dark:border-slate-700">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                     <h3 className="text-2xl font-black text-slate-800 dark:text-white font-serif">Patient Feedback</h3>
-                     <select className="p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm no-print" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
-                        {monthlyData.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
-                     </select>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    
-                    {/* Positive */}
-                    <div className="border-2 border-green-200 dark:border-green-900/50 rounded-3xl overflow-hidden">
-                       <div className="bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-400 p-4 px-6 font-black text-lg flex justify-between items-center border-b border-green-200 dark:border-green-900/50">
-                          <span className="flex items-center gap-2"><ThumbsUp className="w-5 h-5"/> Positive Feedback</span>
-                          <span className="text-sm bg-green-200 dark:bg-green-800 px-2 py-1 rounded-lg">{selectedMonthData.positive.length}</span>
-                       </div>
-                       <div className="p-4 space-y-4 bg-slate-50/50 dark:bg-slate-900/20 min-h-[300px]">
-                          {selectedMonthData.positive.length === 0 ? <p className="text-slate-500 dark:text-slate-400 italic text-center mt-10">No positive feedback recorded.</p> : selectedMonthData.positive.map((c, i) => (
-                             <div key={i} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-                                <p className="text-slate-800 dark:text-white font-medium mb-3">"{c.text}"</p>
-                                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-bold border-t border-slate-100 dark:border-slate-700 pt-3 mt-3">
-                                   <span>{new Date(c.date).toLocaleDateString()}</span>
-                                   <div className="flex items-center gap-2">
-                                     <span className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded shadow-sm border border-green-200 dark:border-green-800/50">{Math.round((c.score/3)*100)}%</span>
-                                     <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">Room: {c.room}</span>
-                                   </div>
-                                </div>
-                             </div>
-                          ))}
-                       </div>
-                    </div>
-
-                    {/* Negative */}
-                    <div className="border-2 border-red-200 dark:border-red-900/50 rounded-3xl overflow-hidden">
-                       <div className="bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-400 p-4 px-6 font-black text-lg flex justify-between items-center border-b border-red-200 dark:border-red-900/50">
-                          <span className="flex items-center gap-2"><AlertTriangle className="w-5 h-5"/> Areas for Improvement</span>
-                          <span className="text-sm bg-red-200 dark:bg-red-800 px-2 py-1 rounded-lg">{selectedMonthData.negative.length}</span>
-                       </div>
-                       <div className="p-4 space-y-4 bg-slate-50/50 dark:bg-slate-900/20 min-h-[300px]">
-                          {selectedMonthData.negative.length === 0 ? <p className="text-slate-500 dark:text-slate-400 italic text-center mt-10">No negative feedback recorded.</p> : selectedMonthData.negative.map((c, i) => (
-                             <div key={i} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-                                <p className="text-slate-800 dark:text-white font-medium mb-3">"{c.text}"</p>
-                                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-bold border-t border-slate-100 dark:border-slate-700 pt-3 mt-3">
-                                   <span>{new Date(c.date).toLocaleDateString()}</span>
-                                   <div className="flex items-center gap-2">
-                                     <span className="bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 px-2 py-0.5 rounded shadow-sm border border-red-200 dark:border-red-800/50">{Math.round((c.score/3)*100)}%</span>
-                                     <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">Room: {c.room}</span>
-                                   </div>
-                                </div>
-                             </div>
-                          ))}
-                       </div>
-                    </div>
-
-                  </div>
+                  <h3 className="text-2xl font-black text-slate-800 dark:text-white font-serif mb-8">Patient Feedback Management</h3>
+                  <CommentManager 
+                    comments={sortedComments} 
+                    commentCats={commentCats} 
+                    setCommentCats={setCommentCats} 
+                    selectedMonth={selectedMonth} 
+                    onMonthChange={setSelectedMonth} 
+                    monthsList={monthlyData.map(m=>m.key)}
+                    showDeptFilter={false}
+                  />
                 </div>
 
             </div>
