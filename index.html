@@ -200,8 +200,25 @@
             const newData = await res.json();
             
             if (newData.census) {
-              setCensusData(newData.census);
-              localStorage.setItem('tdmh_census', JSON.stringify(newData.census));
+              const normalizedCensus = {};
+              Object.keys(newData.census).forEach(k => {
+                 let cleanKey = k.replace(/^'/, ''); // Strip text-forcing apostrophe if present
+                 // If the key got auto-converted to a date by Google Sheets, parse it back to YYYY-MM
+                 if (!/^\d{4}-\d{2}$/.test(cleanKey)) {
+                    const d = new Date(cleanKey);
+                    if (!isNaN(d.getTime())) {
+                       cleanKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    }
+                 }
+                 normalizedCensus[cleanKey] = newData.census[k];
+              });
+              
+              setCensusData(prev => {
+                 // Merge backend census with local. Local holds the priority if sync lags to prevent disappearing numbers.
+                 const merged = { ...prev, ...normalizedCensus };
+                 localStorage.setItem('tdmh_census', JSON.stringify(merged));
+                 return merged;
+              });
             }
 
             const resArray = newData.responses || (Array.isArray(newData) ? newData : []);
@@ -1084,11 +1101,13 @@
          try {
            await fetch(APPS_SCRIPT_URL, {
              method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ action: "update_census", monthKey: currentMonthKey, censusValue: draftCensus })
+             body: JSON.stringify({ action: "update_census", monthKey: `'${currentMonthKey}`, censusValue: draftCensus })
            });
            localStorage.setItem('tdmh_census', JSON.stringify(newData));
          } catch(e) { console.error("Error saving census:", e); }
-         setIsSavingCensus(false);
+         
+         // Let the UI pause on 'Saving...' shortly so user knows it worked
+         setTimeout(() => { setIsSavingCensus(false); }, 1500);
       }
 
       const [selectedCommentMonth, setSelectedCommentMonth] = useState(currentMonthKey);
