@@ -43,7 +43,7 @@
       ThumbsUp, MessageSquare, Star, ArrowLeft, Settings, 
       UserCheck, AlertTriangle, Send, Lock, BarChart, QrCode, Printer, 
       BarChart3, Plus, Edit2, TrendingUp, TrendingDown, HeartHandshake, X, CalendarDays, RefreshCw, Save, Check, Moon, Sun,
-      LogOut, Inbox, Scale
+      LogOut, Inbox, Scale, Trash2
     } from 'lucide-react';
 
     // --- CONFIGURATION & EXTERNAL ASSETS ---
@@ -327,24 +327,19 @@
             }
 
             @media print {
-              @page { size: letter portrait; margin: 0; } /* Zero margin for full-bleed printing */
+              @page { size: letter portrait; margin: 0; }
               html, body { 
                 -webkit-print-color-adjust: exact !important; 
                 print-color-adjust: exact !important; 
+                margin: 0; padding: 0; width: 100%; height: 100%;
               }
               body * { visibility: hidden; }
               
               body.printing-modal .print-modal-content, body.printing-modal .print-modal-content * { visibility: visible; }
               body.printing-modal .print-modal-content { position: absolute; left: 0; top: 0; width: 100%; height: auto; box-shadow: none; border: none; }
               
-              body:not(.printing-modal) .print-dashboard, body:not(.printing-modal) .print-dashboard * { visibility: visible; }
-              
-              /* Dashboard Print Container respects Dark/Light mode styles exactly as seen on screen */
-              body:not(.printing-modal) .print-dashboard { 
-                position: absolute; left: 0; top: 0; width: 100%; height: 100%; min-height: 100vh; 
-                margin: 0; padding: 0; box-shadow: none !important; border: none !important; 
-              }
-              
+              body:not(.printing-modal) .print-dashboard, body:not(.printing-modal) .print-dashboard * { visibility: visible; color: inherit !important; background: inherit !important; }
+              body:not(.printing-modal) .print-dashboard { position: absolute; left: 0; top: 0; width: 100%; height: 100%; margin: 0; padding: 0; box-shadow: none !important; border: none !important; display: flex !important; align-items: center !important; justify-content: center !important; }
               .no-print { display: none !important; }
             }
           `}} />
@@ -1278,6 +1273,22 @@
         setNewIntakeQ('');
       };
 
+      const handleEditIntakeQuestion = (id, newText) => setIntakeQuestions(intakeQuestions.map(q => q.id === id ? { ...q, text: newText } : q));
+      const handleDeleteIntakeQuestion = (id) => setIntakeQuestions(intakeQuestions.filter(q => q.id !== id));
+
+      const handleEditQuestion = (deptId, qId, newText) => setDepartments(departments.map(d => d.id === deptId ? { ...d, questions: d.questions.map(q => q.id === qId ? { ...q, text: newText } : q) } : d));
+      const handleDeleteQuestion = (deptId, qId) => setDepartments(departments.map(d => d.id === deptId ? { ...d, questions: d.questions.filter(q => q.id !== qId) } : d));
+
+      const handleEditService = (deptId, idx, newText) => setDepartments(departments.map(d => {
+         if (d.id === deptId) {
+            const updated = [...d.services];
+            updated[idx] = newText;
+            return { ...d, services: updated };
+         }
+         return d;
+      }));
+      const handleDeleteService = (deptId, idx) => setDepartments(departments.map(d => d.id === deptId ? { ...d, services: d.services.filter((_, i) => i !== idx) } : d));
+
       const currentCensus = parseInt(censusData[currentMonthKey]) || 0;
       const currentResponseRate = currentCensus > 0 ? ((analytics.responsesThisMonthCount / currentCensus) * 100).toFixed(1) : 0;
 
@@ -1546,13 +1557,16 @@
                      </div>
                      <div className="p-6 sm:p-8 space-y-4">
                          {intakeQuestions.length === 0 ? <p className="text-lg italic text-slate-400">No intake questions configured.</p> : (
-                             <ul className="list-disc list-inside space-y-3">
+                             <div className="space-y-3">
                                  {intakeQuestions.map((q, i) => (
-                                     <li key={q.id} className="text-slate-700 dark:text-slate-300 text-lg font-medium">
-                                         <span className="text-blue-600 dark:text-blue-400 mr-2 font-black">Field {i+1}:</span> {q.text} {q.required && <span className="text-red-400">*</span>}
-                                     </li>
+                                     <div key={q.id} className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-xl shadow-sm">
+                                         <span className="text-blue-600 dark:text-blue-400 font-black whitespace-nowrap pl-2">Field {i+1}:</span>
+                                         <input type="text" value={q.text} onChange={(e) => handleEditIntakeQuestion(q.id, e.target.value)} className="flex-1 bg-transparent outline-none text-slate-700 dark:text-slate-300 font-medium px-2" />
+                                         {q.required && <span className="text-red-400 text-sm font-bold pr-2">* Required</span>}
+                                         <button onClick={() => handleDeleteIntakeQuestion(q.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors" title="Delete Field"><Trash2 className="w-5 h-5"/></button>
+                                     </div>
                                  ))}
-                             </ul>
+                             </div>
                          )}
                          <div className="flex flex-col sm:flex-row gap-4 mt-6 border-t border-slate-100 dark:border-slate-700 pt-6">
                              <input type="text" placeholder="Add a new custom patient detail field (e.g. Attending Physician)..." className="flex-1 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white outline-none focus:border-blue-400 dark:focus:border-blue-500 text-base font-medium transition-colors" value={newIntakeQ} onChange={(e) => setNewIntakeQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddIntakeQuestion(e)} />
@@ -1588,9 +1602,13 @@
                              <p className="font-bold text-slate-800 dark:text-slate-200 mb-4 text-lg">Manage Service Tick Boxes:</p>
                              
                              {/* Existing Checkboxes */}
-                             <div className="flex flex-wrap gap-3 mb-6">
+                             <div className="flex flex-col gap-3 mb-6">
                                {dept.services?.map((svc, i) => (
-                                  <span key={i} className="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 px-4 py-2 rounded-xl text-base font-bold shadow-sm">{svc}</span>
+                                  <div key={i} className="flex items-center gap-3 bg-indigo-100/50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800/50 p-2 rounded-xl shadow-sm">
+                                      <span className="w-2 h-2 rounded-full bg-indigo-500 ml-2"></span>
+                                      <input type="text" value={svc} onChange={(e) => handleEditService(dept.id, i, e.target.value)} className="flex-1 bg-transparent outline-none text-indigo-900 dark:text-indigo-200 font-bold px-2" />
+                                      <button onClick={() => handleDeleteService(dept.id, i)} className="p-2 text-indigo-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors" title="Delete Service Option"><Trash2 className="w-5 h-5"/></button>
+                                  </div>
                                ))}
                              </div>
                              
@@ -1606,7 +1624,15 @@
                          {dept.type !== 'checkbox' && (
                            <>
                              {dept.questions.length === 0 ? <p className="text-lg italic text-slate-400">No questions added yet.</p> : (
-                               <ul className="list-disc list-inside space-y-3">{dept.questions.map((q, i) => <li key={q.id} className="text-slate-700 dark:text-slate-300 text-lg font-medium"><span className="text-blue-600 dark:text-blue-400 mr-2 font-black">Q{i+1}:</span> {q.text}</li>)}</ul>
+                               <div className="space-y-3">
+                                 {dept.questions.map((q, i) => (
+                                   <div key={q.id} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-xl shadow-sm">
+                                       <span className="text-blue-600 dark:text-blue-400 font-black whitespace-nowrap pl-2">Q{i+1}:</span>
+                                       <input type="text" value={q.text} onChange={(e) => handleEditQuestion(dept.id, q.id, e.target.value)} className="flex-1 bg-transparent outline-none text-slate-700 dark:text-slate-300 font-medium px-2" />
+                                       <button onClick={() => handleDeleteQuestion(dept.id, q.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors" title="Delete Question"><Trash2 className="w-5 h-5"/></button>
+                                   </div>
+                                 ))}
+                               </div>
                              )}
                              <div className="flex flex-col sm:flex-row gap-4 mt-6 border-t border-slate-100 dark:border-slate-700 pt-6">
                                <input type="text" placeholder="Add a new survey question to this unit..." className="flex-1 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white outline-none focus:border-blue-400 dark:focus:border-blue-500 text-base font-medium transition-colors" value={newQuestions[dept.id] || ''} onChange={(e) => setNewQuestions({...newQuestions, [dept.id]: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion(dept.id)} />
@@ -1788,32 +1814,31 @@
            </div>
            
            {/* Printable Poster Container */}
-           <div className="print-dashboard bg-slate-50 dark:bg-slate-900 min-h-[100vh] w-full flex flex-col items-center justify-center p-4 sm:p-8 relative sm:border border-slate-200 dark:border-slate-800 sm:rounded-3xl sm:min-h-[85vh] sm:shadow-2xl overflow-hidden font-sans transition-colors print:p-0 print:border-0 print:m-0 print:block">
+           <div className="print-dashboard bg-slate-50 dark:bg-slate-900 w-full flex flex-col items-center justify-center p-4 sm:p-8 relative sm:border border-slate-200 dark:border-slate-800 sm:rounded-3xl sm:min-h-[85vh] sm:shadow-2xl overflow-hidden font-sans transition-colors print:p-0 print:border-none print:m-0 print:shadow-none print:rounded-none">
               
               {/* Background Accents (Visible in Light & Dark Mode + Print) */}
               <div className="absolute inset-0 z-0 opacity-20 dark:opacity-10 pointer-events-none" style={{backgroundImage: `url('${BACKGROUND_URL}')`, backgroundSize: 'cover', backgroundPosition: 'center'}} />
-              <div className="absolute top-0 left-0 w-full h-32 sm:h-40 bg-gradient-to-r from-blue-700 to-indigo-800 dark:from-blue-900 dark:to-slate-950 z-0 print:h-[180px]"></div>
 
               {/* Poster Content Card */}
-              <div className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-[2.5rem] shadow-2xl p-8 sm:p-12 border-4 border-white/50 dark:border-slate-700 print:rounded-none print:border-none print:shadow-none print:bg-transparent print:p-12 mt-16 print:mt-24 print:backdrop-blur-none print:bg-white dark:print:bg-slate-900">
+              <div className="relative z-10 flex flex-col items-center text-center max-w-[800px] w-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-[3rem] shadow-2xl p-10 sm:p-14 border-4 border-white/60 dark:border-slate-700 print:scale-[0.90] print:shadow-2xl print:border-4 print:border-slate-200 dark:print:border-slate-700 mt-12 print:mt-0">
                 
                 {/* Logo Frame */}
-                <div className="bg-white px-8 py-5 rounded-[2rem] shadow-xl border-4 border-slate-50 dark:border-slate-700 -mt-24 sm:-mt-28 print:-mt-[130px] mb-8 inline-block">
+                <div className="bg-white px-8 py-5 rounded-[2rem] shadow-xl border-4 border-slate-50 dark:border-slate-700 -mt-24 sm:-mt-28 print:-mt-[110px] mb-8 inline-block">
                   <img src={LOGO_URL} alt="Taytay Doctors Logo" className="h-24 sm:h-28 w-auto object-contain drop-shadow-sm" />
                 </div>
                 
-                <h2 className="text-blue-600 dark:text-blue-400 font-bold tracking-widest uppercase mb-2">We Value Your Feedback</h2>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white mb-6 tracking-tight leading-tight uppercase font-serif drop-shadow-sm">Patient Survey</h1>
+                <h2 className="text-blue-600 dark:text-blue-400 font-bold tracking-widest uppercase mb-2 text-lg">We Value Your Feedback</h2>
+                <h1 className="text-5xl sm:text-6xl font-black text-slate-900 dark:text-white mb-6 tracking-tight leading-tight uppercase font-serif drop-shadow-sm">Patient Survey</h1>
                 
                 <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 mb-10 font-medium leading-relaxed px-4">Please let us know how we did today. Your input helps us continuously improve our quality of care.</p>
                 
-                {/* QR Code Container (Always explicitly white & styled to pop) */}
-                <div className="bg-white p-4 sm:p-5 rounded-[2rem] shadow-2xl border-4 border-blue-500 inline-block mb-10 transition-transform hover:scale-105">
+                {/* QR Code Container */}
+                <div className="bg-white p-5 rounded-[2rem] shadow-2xl border-4 border-blue-500 inline-block mb-10 transition-transform hover:scale-105">
                    <img src={qrUrl} alt="QR Code" className="w-56 h-56 sm:w-72 sm:h-72 object-contain" />
                 </div>
                 
                 {/* Instruction Steps */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-6 text-left w-full mb-8 max-w-lg mx-auto">
+                <div className="grid grid-cols-3 gap-2 sm:gap-6 text-left w-full mb-6 max-w-lg mx-auto">
                     <div className="flex flex-col items-center text-center space-y-3">
                         <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-slate-700 text-blue-700 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner border border-blue-200 dark:border-slate-600">1</div>
                         <p className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">Open<br/>Camera</p>
@@ -1836,7 +1861,7 @@
 
               </div>
               
-              <div className="absolute bottom-6 text-sm font-bold text-slate-400 dark:text-slate-500 tracking-widest px-4 py-2 bg-white/50 dark:bg-slate-900/50 rounded-lg">{FORM_CONTROL_NO}</div>
+              <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-sm font-bold text-slate-500 dark:text-slate-500 tracking-widest px-4 py-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-lg shadow-sm border border-slate-200 dark:border-slate-800">{FORM_CONTROL_NO}</div>
            </div>
         </div>
       );
