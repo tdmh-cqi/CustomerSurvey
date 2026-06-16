@@ -43,7 +43,7 @@
       ThumbsUp, MessageSquare, Star, ArrowLeft, Settings, 
       UserCheck, AlertTriangle, Send, Lock, BarChart, QrCode, Printer, 
       BarChart3, Plus, Edit2, TrendingUp, TrendingDown, HeartHandshake, X, CalendarDays, RefreshCw, Save, Check, Moon, Sun,
-      LogOut, Inbox, Scale, Trash2
+      LogOut, Inbox, Scale, Trash2, Clock
     } from 'lucide-react';
 
     // --- CONFIGURATION & EXTERNAL ASSETS ---
@@ -71,11 +71,11 @@
       { id: 'maintenance', title: 'General Services: Room Facilities & Utilities (Maintenance)', type: 'standard', questions: [{ id: 'mnt_1', text: 'How was your experience with our Maintenance Services/Staff(s)?' }] }
     ];
 
+    // UPDATED: Date Removed, Patient Name now required for the Monitoring Tab
     const DEFAULT_INTAKE_QUESTIONS = [
-      { id: 'date', text: 'Date of Visit / Admission', type: 'date', required: true },
+      { id: 'patient_name', text: 'Patient Name', type: 'short_text', required: true },
       { id: 'room_number', text: 'Room Number / Ward', type: 'short_text', required: true },
-      { id: 'patient_name', text: 'Patient Name (Optional)', type: 'short_text', required: false },
-      { id: 'contact_info', text: 'Email Address / Contact No.', type: 'short_text', required: false }
+      { id: 'contact_info', text: 'Email Address / Contact No. (Optional)', type: 'short_text', required: false }
     ];
 
     const GENERAL_QUESTIONS = [
@@ -90,11 +90,11 @@
     const getMonthString = (dateObj) => `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
     const ALL_MONTHS_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     
-    // DYNAMIC FLATTENER: Breaks out checkboxes into standalone departments for analytics & Google Sheets saving
+    // DYNAMIC FLATTENER
     const getFlatDepartments = (depts) => {
         let flat = [];
         depts.forEach(d => {
-            flat.push(d); // Push Parent (for historical tracking)
+            flat.push(d); 
             if (d.type === 'checkbox' && d.services) {
                 d.services.forEach(svc => {
                     flat.push({ id: `${d.id}_${svc}`, title: `${d.title} (${svc})`, type: 'sub', parentId: d.id });
@@ -104,7 +104,8 @@
         return flat;
     };
 
-    const VERSION_KEY = "tdmh_system_v9";
+    // BUMPED VERSION TO OVERRIDE OLD INTAKE SETTINGS
+    const VERSION_KEY = "tdmh_system_v10";
 
     function App() {
       const [view, setView] = useState('home'); 
@@ -114,13 +115,11 @@
       const [isSyncing, setIsSyncing] = useState(false);
       const [drillDown, setDrillDown] = useState(null); 
       
-      // PERSISTENT LOGIN STATE
       const [authUser, setAuthUser] = useState(() => {
          try { return JSON.parse(localStorage.getItem('tdmh_auth')) || null; } catch(e) { return null; }
       });
       const [loginToast, setLoginToast] = useState(null);
 
-      // MANUAL COMMENT CATEGORIES STATE
       const [commentCats, setCommentCats] = useState(() => {
          try { return JSON.parse(localStorage.getItem('tdmh_comment_cats')) || {}; } catch(e) { return {}; }
       });
@@ -151,7 +150,6 @@
         }
       }, [isDark]);
 
-      // --- ADDED THIS HOOK TO MANAGE QR PRINT STATE ---
       useEffect(() => {
         if (view === 'qr') {
           document.body.classList.add('printing-qr');
@@ -221,8 +219,7 @@
             if (newData.census) {
               const normalizedCensus = {};
               Object.keys(newData.census).forEach(k => {
-                 let cleanKey = k.replace(/^'/, ''); // Strip text-forcing apostrophe if present
-                 // If the key got auto-converted to a date by Google Sheets, parse it back to YYYY-MM
+                 let cleanKey = k.replace(/^'/, ''); 
                  if (!/^\d{4}-\d{2}$/.test(cleanKey)) {
                     const d = new Date(cleanKey);
                     if (!isNaN(d.getTime())) {
@@ -231,13 +228,20 @@
                  }
                  normalizedCensus[cleanKey] = newData.census[k];
               });
-              
               setCensusData(prev => {
-                 // Merge backend census with local. Local holds the priority if sync lags to prevent disappearing numbers.
                  const merged = { ...prev, ...normalizedCensus };
                  localStorage.setItem('tdmh_census', JSON.stringify(merged));
                  return merged;
               });
+            }
+
+            // Sync backend comment categories with local
+            if (newData.categories && Object.keys(newData.categories).length > 0) {
+               setCommentCats(prev => {
+                  const merged = { ...prev, ...newData.categories };
+                  localStorage.setItem('tdmh_comment_cats', JSON.stringify(merged));
+                  return merged;
+               });
             }
 
             const resArray = newData.responses || (Array.isArray(newData) ? newData : []);
@@ -245,7 +249,11 @@
               setResponses(prev => {
                 const combined = [...resArray, ...prev];
                 const uniqueMap = new Map();
-                combined.forEach(item => { if (item.id) uniqueMap.set(item.id, item); });
+                // Enhanced deduplication ID finding
+                combined.forEach(item => { 
+                   if (item.id) uniqueMap.set(item.id, item); 
+                   else uniqueMap.set(item.timestamp, item); 
+                });
                 const sortedUnique = Array.from(uniqueMap.values()).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
                 localStorage.setItem('tdmh_responses', JSON.stringify(sortedUnique));
                 return sortedUnique;
@@ -266,9 +274,15 @@
 
       const handleSurveySubmit = async (surveyData) => {
         setIsSubmitting(true);
-        const finalData = { ...surveyData, timestamp: new Date().toLocaleString(), id: Date.now().toString() };
+        // Force live date creation here to eliminate user error
+        const liveNow = new Date();
+        const finalData = { 
+            ...surveyData, 
+            general: { ...surveyData.general, date: liveNow.toLocaleDateString() },
+            timestamp: liveNow.toLocaleString(), 
+            id: Date.now().toString() 
+        };
         
-        // Populate titles so the backend creates tabs correctly
         Object.keys(finalData.departments).forEach(id => {
           const matched = flatDepartments.find(d => d.id === id);
           if (matched) finalData.departments[id].title = matched.title;
@@ -316,7 +330,6 @@
             .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
             .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
             
-            /* VIEW TRANSITION ANIMATIONS */
             ::view-transition-old(root),
             ::view-transition-new(root) {
               animation: none;
@@ -345,7 +358,6 @@
               
               header, button.fixed, .fixed.bottom-3, .fixed.inset-0.z-0, .no-print { display: none !important; }
               
-              /* 1. QR POSTER PRINT STYLES (Perfect Centering, 1 Page, Preserves Dark Mode) */
               body.printing-qr { background-color: #f8fafc !important; overflow: hidden !important; }
               body.printing-qr.dark { background-color: #0f172a !important; }
               
@@ -367,7 +379,6 @@
                   width: 100%; display: flex; justify-content: center;
               }
 
-              /* 2. DATA TABLES/MODALS PRINT STYLES */
               body:not(.printing-qr) * { visibility: hidden; background: white; }
               body:not(.printing-qr) .print-dashboard, body:not(.printing-qr) .print-dashboard * { visibility: visible; color: black !important; }
               body:not(.printing-qr) .print-dashboard { position: absolute; left: 0; top: 0; width: 100%; height: auto; margin: 0; padding: 0; background: white !important; box-shadow: none !important; border: none !important; display: block !important; }
@@ -380,7 +391,6 @@
           {drillDown && <style>{`body { class: "printing-modal" }`}</style>}
           {!drillDown && <style>{`body { class: "" }`}</style>}
 
-          {/* GLOBAL TOAST NOTIFICATION */}
           {loginToast && (
              <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[100] bg-green-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 font-sans font-bold">
                 <Check className="w-5 h-5"/> {loginToast}
@@ -467,26 +477,31 @@
       );
     }
 
-    // --- SHARED COMMENT MANAGER UI ---
     function CommentManager({ comments, commentCats, setCommentCats, selectedMonth, onMonthChange, monthsList, showDeptFilter, flatDepartments, selectedDept, onDeptChange }) {
        const [catTab, setCatTab] = useState('inbox');
 
+       // Updated to Auto-Sync with Apps Script upon category modification
        const handleSetCat = (id, category) => {
           setCommentCats(prev => {
              const updated = { ...prev };
              if (category === 'uncategorized') delete updated[id];
              else updated[id] = category;
+             
+             // Background save to Google Sheets so settings persist
+             fetch(APPS_SCRIPT_URL, {
+                method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: "update_comment_cats", categories: updated })
+             }).catch(e => console.log(e));
+
              return updated;
           });
        };
 
-       // Filter by category
        const inboxList = comments.filter(c => !commentCats[c.id]);
        const posList = comments.filter(c => commentCats[c.id] === 'positive');
        const mixList = comments.filter(c => commentCats[c.id] === 'mixed');
        const negList = comments.filter(c => commentCats[c.id] === 'negative');
 
-       // Map tab to list
        const currentList = catTab === 'inbox' ? inboxList : catTab === 'positive' ? posList : catTab === 'mixed' ? mixList : negList;
 
        return (
@@ -509,7 +524,6 @@
                )}
             </div>
 
-            {/* TAB SELECTORS */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                <button onClick={() => setCatTab('inbox')} className={`p-4 rounded-2xl border-2 font-black text-lg transition-all flex items-center justify-center gap-2 ${catTab === 'inbox' ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400'}`}>
                   <Inbox className="w-5 h-5"/> Inbox
@@ -529,7 +543,6 @@
                </button>
             </div>
 
-            {/* LIST AREA */}
             <div className="bg-slate-100/50 dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 min-h-[400px]">
                {currentList.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 min-h-[300px]">
@@ -552,7 +565,6 @@
                               </div>
                            </div>
                            
-                           {/* CATEGORIZATION ACTION BAR */}
                            <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                               <p className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest text-center">Categorize As:</p>
                               <div className="flex gap-2">
@@ -631,8 +643,6 @@
           
           if (data.success) {
               setError('');
-              
-              // CREATE PERSISTENT SESSION
               const userObj = { role: loginType, id: id, name: name };
               setAuthUser(userObj);
               localStorage.setItem('tdmh_auth', JSON.stringify(userObj));
@@ -782,7 +792,7 @@
               selectedServices: [],
               answers: {},
               comments: {},
-              comment: "" // Legacy fallback for standard depts
+              comment: "" 
             };
             return acc;
          }, {})
@@ -850,7 +860,6 @@
               ? currentServices.filter(s => s !== service) 
               : [...currentServices, service];
           
-          // Clean up answers if un-checked
           const newAnswers = { ...prev.departments[deptId]?.answers };
           const newComments = { ...prev.departments[deptId]?.comments };
           if (!newServices.includes(service)) {
@@ -876,7 +885,6 @@
       const handleSubmit = (e) => {
         e.preventDefault();
         
-        // This Flattener seamlessly converts grouped checkbox services into autonomous Google Sheets rows!
         const flattenedDepartments = {};
 
         Object.keys(surveyData.departments).forEach(deptId => {
@@ -887,7 +895,6 @@
                 if (dData.selectedServices && dData.selectedServices.length > 0) {
                     let hasRatings = false;
                     dData.selectedServices.forEach(svc => {
-                        // Only save as a row if they actually provided an emoji rating
                         if (dData.answers && dData.answers[svc]) {
                             hasRatings = true;
                             const virtualId = `${deptId}_${svc}`;
@@ -938,7 +945,7 @@
               </div>
               <div className="p-6 sm:p-10 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {intakeQuestions.map((q) => (
-                  <div key={q.id} className={`space-y-3 ${q.id === 'date' ? 'md:col-span-2' : ''}`}>
+                  <div key={q.id} className="space-y-3">
                     <label className="block text-slate-700 dark:text-slate-300 font-bold text-lg">{q.text} {q.required && <span className="text-red-500 dark:text-red-400">*</span>}</label>
                     <input 
                        type={q.type === 'date' ? 'date' : 'text'} 
@@ -952,7 +959,7 @@
               </div>
             </div>
 
-            {/* DEPARTMENTS SECTION (SINGLE SCROLL) */}
+            {/* DEPARTMENTS SECTION */}
             <div className="px-4 sm:px-0 space-y-4 sm:space-y-8">
               <div className="text-center py-6">
                  <h2 className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-white font-serif mb-3">Rate Your Experience</h2>
@@ -966,7 +973,6 @@
                   </div>
                   <div className="p-5 sm:p-8 space-y-8">
                     
-                    {/* INDIVIDUAL TICK BOX LOGIC */}
                     {dept.type === 'checkbox' && (
                       <div className="space-y-6">
                          <div className="bg-blue-50/50 dark:bg-slate-900/50 p-6 rounded-2xl border border-blue-100 dark:border-slate-700">
@@ -986,30 +992,25 @@
                            </div>
                          </div>
                          
-                         {/* Dynamic Render: One set of rating emojis per ticked service! */}
                          {surveyData.departments[dept.id]?.selectedServices?.map(svc => {
                             const ans = surveyData.departments[dept.id]?.answers?.[svc];
                             return (
                               <div key={svc} className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-in fade-in slide-in-from-top-4">
                                  <p className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white leading-snug mb-6">How was your experience with <span className="text-blue-600 dark:text-blue-400">{svc}</span> and the staff(s)?</p>
                                  <div className="flex justify-between sm:justify-start sm:gap-6">
-                                    {/* HAPPY (3) */}
                                     <button type="button" onClick={() => handleServiceRating(dept.id, svc, 3)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 3 ? 'bg-green-500 border-green-500 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-green-200 dark:hover:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20'}`}>
                                       <span className="text-5xl sm:text-6xl drop-shadow-sm">😁</span>
                                       <span className="font-black tracking-wide text-sm sm:text-base">Happy</span>
                                     </button>
-                                    {/* NEUTRAL (2) */}
                                     <button type="button" onClick={() => handleServiceRating(dept.id, svc, 2)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 2 ? 'bg-yellow-400 border-yellow-400 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-yellow-200 dark:hover:border-yellow-800 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'}`}>
                                       <span className="text-5xl sm:text-6xl drop-shadow-sm">😐</span>
                                       <span className="font-black tracking-wide text-sm sm:text-base">Neutral</span>
                                     </button>
-                                    {/* SAD (1) */}
                                     <button type="button" onClick={() => handleServiceRating(dept.id, svc, 1)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 1 ? 'bg-red-500 border-red-500 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-red-200 dark:hover:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
                                       <span className="text-5xl sm:text-6xl drop-shadow-sm">😢</span>
                                       <span className="font-black tracking-wide text-sm sm:text-base">Sad</span>
                                     </button>
                                  </div>
-                                 {/* Specific comment box for this specific service */}
                                  <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
                                    <textarea 
                                       onChange={(e) => handleServiceComment(dept.id, svc, e.target.value)} 
@@ -1024,7 +1025,6 @@
                       </div>
                     )}
 
-                    {/* STANDARD LOGIC */}
                     {dept.type !== 'checkbox' && (dept.questions || []).map((q) => {
                       const ans = surveyData.departments[dept.id]?.answers?.[q.id];
                       return (
@@ -1032,19 +1032,16 @@
                           <p className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white leading-snug">{q.text}</p>
                           <div className="flex justify-between sm:justify-start sm:gap-6">
                             
-                            {/* HAPPY (3) */}
                             <button type="button" onClick={() => handleRating(dept.id, q.id, 3)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 3 ? 'bg-green-500 border-green-500 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-green-200 dark:hover:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20'}`}>
                               <span className="text-5xl sm:text-6xl drop-shadow-sm">😁</span>
                               <span className="font-black tracking-wide text-sm sm:text-base">Happy</span>
                             </button>
 
-                            {/* NEUTRAL (2) */}
                             <button type="button" onClick={() => handleRating(dept.id, q.id, 2)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 2 ? 'bg-yellow-400 border-yellow-400 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-yellow-200 dark:hover:border-yellow-800 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'}`}>
                               <span className="text-5xl sm:text-6xl drop-shadow-sm">😐</span>
                               <span className="font-black tracking-wide text-sm sm:text-base">Neutral</span>
                             </button>
 
-                            {/* SAD (1) */}
                             <button type="button" onClick={() => handleRating(dept.id, q.id, 1)} className={`flex-1 sm:flex-none sm:w-32 flex flex-col items-center gap-2 p-4 sm:p-6 rounded-2xl border-4 transition-all active:scale-95 ${ans === 1 ? 'bg-red-500 border-red-500 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:border-red-200 dark:hover:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/20'}`}>
                               <span className="text-5xl sm:text-6xl drop-shadow-sm">😢</span>
                               <span className="font-black tracking-wide text-sm sm:text-base">Sad</span>
@@ -1055,7 +1052,6 @@
                       )
                     })}
 
-                    {/* OPTIONAL COMMENT for Standard Departments */}
                     {dept.type !== 'checkbox' && (
                       <div className="pt-4 border-t border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
                         <textarea 
@@ -1072,7 +1068,7 @@
               ))}
             </div>
 
-            {/* OVERALL EXPERIENCE (FINAL) */}
+            {/* OVERALL EXPERIENCE */}
             <div className="bg-slate-900 dark:bg-slate-950 text-white sm:rounded-[2rem] shadow-2xl overflow-hidden -mx-4 sm:mx-0 mt-12 border border-slate-800 dark:border-slate-800">
               <div className="p-6 sm:p-10 border-b border-slate-800 text-center">
                 <h2 className="text-3xl sm:text-4xl font-black font-serif">Overall Experience</h2>
@@ -1138,15 +1134,14 @@
       const liveDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       const currentMonthKey = getMonthString(new Date());
 
-      // NEW: Separate state for drafting the census before saving
+      // FIX: Prevents typing disruption when background sync hits
       const [draftCensus, setDraftCensus] = useState(censusData[currentMonthKey] || '');
       useEffect(() => {
-         setDraftCensus(censusData[currentMonthKey] || '');
+         setDraftCensus(prev => prev === '' || prev == 0 ? (censusData[currentMonthKey] || '') : prev);
       }, [censusData, currentMonthKey]);
 
       const handleCensusSave = async () => {
          setIsSavingCensus(true);
-         // Apply draft to actual censusData locally so the dashboard instantly updates
          const newData = { ...censusData, [currentMonthKey]: draftCensus };
          setCensusData(newData);
          
@@ -1158,7 +1153,6 @@
            localStorage.setItem('tdmh_census', JSON.stringify(newData));
          } catch(e) { console.error("Error saving census:", e); }
          
-         // Let the UI pause on 'Saving...' shortly so user knows it worked
          setTimeout(() => { setIsSavingCensus(false); }, 1500);
       }
 
@@ -1188,12 +1182,15 @@
 
         let responsesThisMonthCount = 0;
         
-        // Uncategorized Collection pool instead of pre-sorted
         const structuredComments = {}; 
         flatDepartments.forEach(d => structuredComments[d.id] = {});
         allMonthsKeys.forEach(mk => {
           flatDepartments.forEach(d => structuredComments[d.id][mk] = { comments: [] });
         });
+
+        // Filter responses for today specifically for the new monitoring tab
+        const todayStr = new Date().toLocaleDateString();
+        const todaysResponses = responses.filter(r => new Date(r.timestamp).toLocaleDateString() === todayStr);
 
         responses.forEach(res => {
           if (!res || !res.timestamp) return;
@@ -1239,7 +1236,6 @@
               const avgResScore = resCount > 0 ? (resScore/resCount) : 0;
               if (data.comment && data.comment.trim() !== '') {
                 allCommentsText += " " + data.comment;
-                // GENERATE UNIQUE ID for mapping categories
                 const fallbackTime = new Date(res.timestamp).getTime();
                 const uniqueId = `${res.id || fallbackTime}_${deptId}`;
                 
@@ -1273,7 +1269,8 @@
         return { 
           responsesThisMonthCount, allMonthsKeys,
           overallSatPct, 
-          recommendationRate: recRate, fullYearDeptData, genTallies, monthlyResponsesTally, maxResponsesMonthly, structuredComments
+          recommendationRate: recRate, fullYearDeptData, genTallies, monthlyResponsesTally, maxResponsesMonthly, structuredComments,
+          todaysResponses
         };
       }, [responses, flatDepartments, currentMonthKey]);
 
@@ -1325,7 +1322,6 @@
       const currentCensus = parseInt(censusData[currentMonthKey]) || 0;
       const currentResponseRate = currentCensus > 0 ? ((analytics.responsesThisMonthCount / currentCensus) * 100).toFixed(1) : 0;
 
-      // Extract unified comments list for CommentManager
       let allSelectedComments = [];
       if (selectedCommentDept === 'all') {
          flatDepartments.forEach(d => {
@@ -1354,7 +1350,7 @@
           </div>
 
           <div className="flex border-b border-slate-200 dark:border-slate-700 px-4 sm:px-10 bg-slate-50/80 dark:bg-slate-900/80 overflow-x-auto custom-scrollbar no-print shrink-0 pb-1">
-            {['overview', 'monthly report', 'comments & suggestions', 'question configurations'].map(tab => (
+            {['overview', 'monitoring', 'monthly report', 'comments & suggestions', 'question configurations'].map(tab => (
               <button key={tab} onClick={()=>setActiveTab(tab)} className={`whitespace-nowrap py-5 px-4 sm:px-6 font-bold text-sm sm:text-base border-b-4 transition-colors capitalize ${activeTab === tab ? 'border-blue-600 dark:border-blue-400 text-blue-800 dark:text-blue-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}>
                 {tab}
               </button>
@@ -1367,9 +1363,7 @@
             {activeTab === 'overview' && (
               <div className="space-y-12 animate-in slide-in-from-bottom-2">
                 
-                {/* Metric Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {/* Editable Census Input */}
                   <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-sm hover:border-blue-300 transition-colors relative flex flex-col justify-between">
                     <div>
                       <p className="text-slate-500 dark:text-slate-400 font-bold mb-1 uppercase tracking-wide text-sm">Total Census</p>
@@ -1396,7 +1390,6 @@
                       </div>
                     </div>
                   </div>
-                  {/* Total Responses */}
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
                     <div>
                       <p className="text-blue-800 dark:text-blue-400 font-bold mb-1 uppercase tracking-wide text-sm">Total Responses</p>
@@ -1405,7 +1398,6 @@
                     </div>
                     <p className="text-[10px] font-bold text-blue-600 dark:text-blue-500 mt-6 uppercase tracking-widest">Automated Count</p>
                   </div>
-                  {/* Response Rate */}
                   <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between relative group">
                     <div>
                        <p className="text-emerald-800 dark:text-emerald-400 font-bold mb-1 uppercase tracking-wide text-sm">Response Rate</p>
@@ -1416,7 +1408,6 @@
                        (Total Responses ÷ Total Census)
                     </p>
                   </div>
-                  {/* Facility Avg Quality */}
                   <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between relative group">
                     <div>
                        <p className="text-indigo-800 dark:text-indigo-400 font-bold mb-1 uppercase tracking-wide text-sm">Satisfaction Rate</p>
@@ -1429,7 +1420,6 @@
                   </div>
                 </div>
 
-                {/* 12 Month Trend Graph */}
                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem] shadow-sm">
                   <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><BarChart3 className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Survey Volume (Response Rate %)</h3>
                   <div className="flex items-end justify-between gap-1 sm:gap-4 h-[400px] sm:h-[500px] border-b-4 border-slate-100 dark:border-slate-700 pb-2 relative">
@@ -1468,7 +1458,6 @@
                   </div>
                 </div>
 
-                {/* Facility Insights */}
                 <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem]">
                    <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><Star className="w-8 h-8 text-amber-500" /> General Satisfaction Insights</h3>
                    
@@ -1509,6 +1498,50 @@
                    </div>
                 </div>
               </div>
+            )}
+
+            {/* 1.5 MONITORING TAB (NEW) */}
+            {activeTab === 'monitoring' && (
+               <div className="space-y-6 animate-in slide-in-from-bottom-2">
+                  <div className="flex justify-between items-center mb-6">
+                     <div>
+                        <h3 className="text-2xl sm:text-3xl font-black font-serif flex items-center gap-3 text-slate-800 dark:text-white"><UserCheck className="text-blue-600 dark:text-blue-400 w-8 h-8" /> Live Patient Monitoring</h3>
+                        <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Track patients who have submitted their surveys <span className="font-bold text-blue-600 dark:text-blue-400">today</span>.</p>
+                     </div>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                     {analytics.todaysResponses.length === 0 ? (
+                        <div className="p-10 text-center text-slate-400 dark:text-slate-500 font-bold">
+                           <Clock className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                           No surveys have been submitted yet today.
+                        </div>
+                     ) : (
+                        <div className="overflow-x-auto custom-scrollbar">
+                           <table className="w-full text-left min-w-[600px]">
+                              <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700">
+                                 <tr>
+                                    <th className="p-5">Time Submitted</th>
+                                    <th className="p-5">Patient Name</th>
+                                    <th className="p-5">Room / Ward</th>
+                                    <th className="p-5 text-right">Status</th>
+                                 </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200">
+                                 {analytics.todaysResponses.map(r => (
+                                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                       <td className="p-5 text-sm font-medium">{new Date(r.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                                       <td className="p-5 font-black text-lg">{r.general?.patient_name || 'Anonymous'}</td>
+                                       <td className="p-5 font-medium bg-slate-50 dark:bg-slate-900/50">{r.general?.room_number || 'N/A'}</td>
+                                       <td className="p-5 text-right"><span className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/50 px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest inline-flex items-center gap-2"><Check className="w-3 h-3"/> Complete</span></td>
+                                    </tr>
+                                 ))}
+                              </tbody>
+                           </table>
+                        </div>
+                     )}
+                  </div>
+               </div>
             )}
 
             {/* 2. MONTHLY COMPARATIVE REPORT TAB */}
@@ -1563,7 +1596,7 @@
                </div>
             )}
 
-            {/* 3. COMMENTS & SUGGESTIONS TAB (NEW CATEGORIZATION MANAGER) */}
+            {/* 3. COMMENTS & SUGGESTIONS TAB */}
             {activeTab === 'comments & suggestions' && (
                <CommentManager 
                  comments={allSelectedComments} 
@@ -1583,7 +1616,6 @@
             {activeTab === 'question configurations' && (
                <div className="animate-in slide-in-from-bottom-2 space-y-10 no-print">
                  
-                 {/* PATIENT DETAILS EDITOR */}
                  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors mb-8">
                      <div className="bg-slate-50 dark:bg-slate-800/50 p-6 sm:p-8 border-b border-slate-200 dark:border-slate-700">
                          <span className="font-black text-slate-800 dark:text-white text-xl flex items-center gap-3"><UserCheck className="w-6 h-6 text-slate-400" /> Patient Details (Intake Form)</span>
@@ -1617,7 +1649,6 @@
                    {departments.map(dept => (
                      <div key={dept.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
                        
-                       {/* DEPARTMENT HEADER */}
                        <div className="bg-slate-50 dark:bg-slate-800/50 p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b border-slate-200 dark:border-slate-700">
                           <span className="font-black text-slate-800 dark:text-white text-xl flex items-center gap-3"><Edit2 className="w-6 h-6 text-slate-400" /> {dept.title}</span>
                           <label className="flex items-center gap-4 cursor-pointer group bg-white dark:bg-slate-700 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-sm hover:border-blue-300 dark:hover:border-blue-500 transition-colors">
@@ -1629,12 +1660,10 @@
                        
                        <div className="p-6 sm:p-8 space-y-4">
                          
-                         {/* DYNAMIC TICK BOX EDITOR (Only for 'checkbox' type departments) */}
                          {dept.type === 'checkbox' && (
                            <div className="mb-8 p-6 bg-indigo-50/50 dark:bg-slate-900/80 rounded-2xl border border-indigo-100 dark:border-slate-700">
                              <p className="font-bold text-slate-800 dark:text-slate-200 mb-4 text-lg">Manage Service Tick Boxes:</p>
                              
-                             {/* Existing Checkboxes */}
                              <div className="flex flex-col gap-3 mb-6">
                                {dept.services?.map((svc, i) => (
                                   <div key={i} className="flex items-center gap-3 bg-indigo-100/50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800/50 p-2 rounded-xl shadow-sm">
@@ -1645,7 +1674,6 @@
                                ))}
                              </div>
                              
-                             {/* Add New Checkbox Input */}
                              <div className="flex flex-col sm:flex-row gap-3">
                                <input type="text" placeholder="Add a new tick box (e.g. 'Therapy')..." className="flex-1 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-950 dark:text-white outline-none focus:border-indigo-400 font-medium transition-colors" value={newServices[dept.id] || ''} onChange={(e) => setNewServices({...newServices, [dept.id]: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && handleAddService(dept.id)} />
                                <button type="button" onClick={() => handleAddService(dept.id)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-xl text-base font-bold transition-colors shadow-sm">Add Option</button>
@@ -1653,7 +1681,6 @@
                            </div>
                          )}
 
-                         {/* QUESTION LIST & EDITOR */}
                          {dept.type !== 'checkbox' && (
                            <>
                              {dept.questions.length === 0 ? <p className="text-lg italic text-slate-400">No questions added yet.</p> : (
@@ -1707,7 +1734,6 @@
           let localScore = 0; let localCount = 0;
           let commentData = null;
 
-          // Support for Parent Aggregation AND strict Sub-Department checks
           if (res.departments[deptId] && !res.departments[deptId].skipped && res.departments[deptId].answers) {
              Object.values(res.departments[deptId].answers).forEach(score => {
                 localScore += Number(score) || 0; localCount++;
@@ -1715,7 +1741,6 @@
              commentData = res.departments[deptId].comment;
           }
 
-          // If looking at a parent checkbox department, aggregate its children
           const origDef = departments.find(d => d.id === deptId);
           if (origDef && origDef.type === 'checkbox') {
              origDef.services.forEach(svc => {
@@ -1773,7 +1798,6 @@
 
             <div className="space-y-12">
               
-              {/* Highlight Stats */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 p-8 rounded-3xl shadow-sm flex flex-col justify-center">
                   <p className="text-blue-800 dark:text-blue-400 font-bold font-sans uppercase tracking-wide text-sm mb-2">Satisfaction Rate ({latestMonth.label})</p>
@@ -1794,7 +1818,6 @@
                 </div>
               </div>
 
-              {/* Historical Trend */}
               <div>
                 <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-6 font-serif">Historical Trend (Satisfaction %)</h3>
                 <div className="flex items-end gap-2 sm:gap-4 h-64 border-b-4 border-slate-100 dark:border-slate-700 pb-2 font-sans">
@@ -1815,7 +1838,6 @@
                 </div>
               </div>
               
-              {/* Comments Section (NEW CATEGORIZATION MANAGER) */}
                 <div className="pt-8 border-t border-slate-200 dark:border-slate-700">
                   <h3 className="text-2xl font-black text-slate-800 dark:text-white font-serif mb-8">Patient Feedback Management</h3>
                   <CommentManager 
@@ -1846,10 +1868,8 @@
              <button onClick={() => window.print()} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 flex items-center gap-2"><Printer className="w-5 h-5" /> Print Poster</button>
            </div>
            
-           {/* Printable Poster Container */}
            <div className="print-qr-poster bg-slate-50 dark:bg-slate-900 w-full flex flex-col items-center justify-center relative sm:border border-slate-200 dark:border-slate-800 sm:rounded-3xl sm:min-h-[75vh] overflow-hidden font-sans transition-colors print:p-0 print:border-none print:bg-transparent">
-              
-              {/* Background Accents (Hidden on Print) */}
+             
               <div className="absolute inset-0 z-0 opacity-20 dark:opacity-10 pointer-events-none no-print" style={{backgroundImage: `url('${BACKGROUND_URL}')`, backgroundSize: 'cover', backgroundPosition: 'center'}} />
 
               <div className="print-qr-card-wrapper relative z-10 w-full">
@@ -1868,7 +1888,6 @@
                        <img src={qrUrl} alt="QR Code" className="w-56 h-56 sm:w-72 sm:h-72 object-contain" />
                     </div>
                     
-                    {/* Instruction Steps */}
                     <div className="grid grid-cols-3 gap-2 sm:gap-6 text-left w-full mb-6 max-w-lg mx-auto">
                         <div className="flex flex-col items-center text-center space-y-3">
                             <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-slate-700 text-blue-700 dark:text-blue-400 flex items-center justify-center font-black text-xl shadow-inner border border-blue-200 dark:border-slate-600">1</div>
