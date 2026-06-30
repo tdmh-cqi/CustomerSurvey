@@ -72,7 +72,6 @@
       { id: 'maintenance', title: 'General Services: Room Facilities & Utilities (Maintenance)', type: 'standard', questions: [{ id: 'mnt_1', text: 'How was your experience with our Maintenance Services/Staff(s)?' }] }
     ];
 
-    // UPDATED: Date Removed, Patient Name now required for the Monitoring Tab
     const DEFAULT_INTAKE_QUESTIONS = [
       { id: 'patient_name', text: 'Patient Name', type: 'short_text', required: true },
       { id: 'room_number', text: 'Room Number / Ward', type: 'short_text', required: true },
@@ -88,7 +87,11 @@
       { id: 'gen_6', text: 'Generally, were you satisfied with our services?', type: 'yesno', required: true }
     ];
 
-    const getMonthString = (dateObj) => `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+    const getMonthString = (dateObj) => {
+        // Fallback for completely invalid dates so app doesn't crash
+        if (isNaN(dateObj.getTime())) return "Unknown";
+        return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+    };
     const ALL_MONTHS_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     
     // DYNAMIC FLATTENER
@@ -105,8 +108,8 @@
         return flat;
     };
 
-    // BUMPED VERSION TO WIPE LOCAL CACHE AND FIX THE COUNT GLITCH
-    const VERSION_KEY = "tdmh_system_v12";
+    // BUMPED VERSION TO WIPE LOCAL CACHE AND FORCE THE NEW TIME FIXES
+    const VERSION_KEY = "tdmh_system_v13";
 
     function App() {
       const [view, setView] = useState('home'); 
@@ -115,6 +118,7 @@
       const [showSuccess, setShowSuccess] = useState(false);
       const [isSyncing, setIsSyncing] = useState(false);
       const [drillDown, setDrillDown] = useState(null); 
+      const [surveyKey, setSurveyKey] = useState(0); // Added to forcibly reset survey form after submission
       
       const [authUser, setAuthUser] = useState(() => {
          try { return JSON.parse(localStorage.getItem('tdmh_auth')) || null; } catch(e) { return null; }
@@ -252,12 +256,19 @@
               setResponses(prev => {
                 const combined = [...resArray, ...prev];
                 const uniqueMap = new Map();
-                // Enhanced deduplication ID finding
+                
                 combined.forEach(item => { 
                    if (item.id) uniqueMap.set(item.id, item); 
                    else uniqueMap.set(item.timestamp, item); 
                 });
-                const sortedUnique = Array.from(uniqueMap.values()).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+                const sortedUnique = Array.from(uniqueMap.values()).sort((a,b) => {
+                    const dateA = new Date(a.timestamp);
+                    const dateB = new Date(b.timestamp);
+                    // Safe sorting
+                    if (isNaN(dateA.getTime())) return 1;
+                    if (isNaN(dateB.getTime())) return -1;
+                    return dateB - dateA;
+                });
                 localStorage.setItem('tdmh_responses', JSON.stringify(sortedUnique));
                 return sortedUnique;
               });
@@ -275,7 +286,7 @@
         return () => clearInterval(intervalId); 
       }, [view]);
 
-      // CORE FIX: Let's user manually wipe the local cache and redownload everything
+      // Let user manually wipe the local cache and redownload everything
       const handleHardRefresh = () => {
          if (window.confirm("This will clear the local cache and re-download all data directly from Google Sheets to ensure it matches perfectly. Continue?")) {
             localStorage.removeItem('tdmh_responses');
@@ -287,10 +298,21 @@
       const handleSurveySubmit = async (surveyData) => {
         setIsSubmitting(true);
         const liveNow = new Date();
+        
+        // FIX: Force strictly to MM/DD/YYYY and Asia/Manila TimeZone regardless of iPad settings
+        const optionsDate = { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const optionsTime = { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+        
+        const formatterDate = new Intl.DateTimeFormat('en-US', optionsDate);
+        const formatterTime = new Intl.DateTimeFormat('en-US', optionsTime);
+        
+        const phDateString = formatterTime.format(liveNow);
+        const phDateOnly = formatterDate.format(liveNow);
+
         const finalData = { 
             ...surveyData, 
-            general: { ...surveyData.general, date: liveNow.toLocaleDateString() },
-            timestamp: liveNow.toLocaleString(), 
+            general: { ...surveyData.general, date: phDateOnly },
+            timestamp: phDateString, 
             id: Date.now().toString() 
         };
         
@@ -318,6 +340,7 @@
 
       const handleCloseSuccess = () => {
         setShowSuccess(false);
+        setSurveyKey(prev => prev + 1); // Resets the patient survey completely for the next user
         setView('home');
         window.scrollTo({ top: 0, behavior: 'instant' });
       }
@@ -431,7 +454,7 @@
                     </button>
                   )}
                   
-                  {/* HARD REFRESH BUTTON ADDED HERE */}
+                  {/* HARD REFRESH BUTTON */}
                   {(view === 'admin' || view === 'dept') && (
                     <>
                        <button onClick={handleHardRefresh} className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 px-3 py-1.5 rounded-lg flex items-center gap-2 shadow-sm transition-all" title="Force redownload from database">
@@ -476,9 +499,17 @@
             </header>
           )}
 
-          <main className={`max-w-5xl mx-auto w-full relative z-10 flex-grow transition-all duration-300 ${view === 'survey' ? 'p-0 sm:p-6 lg:p-8 mt-16 sm:mt-0' : 'p-4 sm:p-6 lg:p-8'}`}>
-            {view === 'home' && <HomeView setView={setView} />}
-            {view === 'survey' && <PatientSurvey onSubmit={handleSurveySubmit} intakeQuestions={intakeQuestions} activeDepartments={activeDepartments} departments={departments} isSubmitting={isSubmitting} setView={setView} />}
+          <main className={`max-w-5xl mx-auto w-full relative z-10 flex-grow transition-all duration-300 p-4 sm:p-6 lg:p-8`}>
+            {view === 'home' && (
+               <div className="flex flex-col w-full">
+                  <HomeBanner onStartClick={() => {
+                     document.getElementById('survey-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }} />
+                  <div id="survey-section" className="scroll-mt-28">
+                     <PatientSurvey key={surveyKey} onSubmit={handleSurveySubmit} intakeQuestions={intakeQuestions} activeDepartments={activeDepartments} departments={departments} isSubmitting={isSubmitting} setView={setView} />
+                  </div>
+               </div>
+            )}
             {view === 'login' && <LoginSelectView setView={setView} setActiveDeptId={setActiveDeptId} departments={departments} flatDepartments={flatDepartments} setAuthUser={setAuthUser} setLoginToast={setLoginToast} />}
             {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} flatDepartments={flatDepartments} drillDown={drillDown} setDrillDown={setDrillDown} commentCats={commentCats} setCommentCats={setCommentCats} intakeQuestions={intakeQuestions} setIntakeQuestions={setIntakeQuestions} handleHardRefresh={handleHardRefresh} />}
             {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} flatDepartments={flatDepartments} commentCats={commentCats} setCommentCats={setCommentCats} />}
@@ -575,7 +606,9 @@
                               )}
                               <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed mb-4">"{c.text}"</p>
                               <div className="flex flex-wrap items-center gap-3 text-sm mb-6 border-t border-slate-100 dark:border-slate-700 pt-4">
-                                 <span className="text-slate-400 font-bold uppercase tracking-wider">{new Date(c.date).toLocaleDateString()}</span>
+                                 <span className="text-slate-400 font-bold uppercase tracking-wider">
+                                    {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
+                                 </span>
                                  <span className="font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">Room: {c.room}</span>
                                  {c.score > 0 && <span className="font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">Avg Score: {c.score.toFixed(1)}</span>}
                               </div>
@@ -601,15 +634,15 @@
        )
     }
 
-    function HomeView({ setView }) {
+    function HomeBanner({ onStartClick }) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in zoom-in duration-500">
+        <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in zoom-in duration-500 mb-10">
           <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md p-8 sm:p-14 rounded-[2rem] shadow-2xl border border-white/50 dark:border-slate-700/50 max-w-xl w-full text-center relative overflow-hidden transition-colors">
             <div className="relative z-10">
               <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-800 dark:from-blue-500 dark:to-indigo-700 text-white rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-blue-500/20 dark:shadow-blue-900/40 rotate-3 transform hover:rotate-0 transition-transform"><ClipboardList className="w-12 h-12 -rotate-3" /></div>
               <h2 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-snug">Patient Satisfaction Survey</h2>
               <p className="text-slate-600 dark:text-slate-300 mb-10 font-medium text-lg leading-relaxed">We value your health and your opinion. Please take a moment to rate your experience so we can serve you better.</p>
-              <button onClick={() => setView('survey')} className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 dark:from-blue-500 dark:to-indigo-600 dark:hover:from-blue-600 dark:hover:to-indigo-700 text-white font-bold py-5 px-6 rounded-2xl shadow-xl shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-3 text-xl tracking-wide group border border-blue-500 dark:border-blue-400">
+              <button onClick={onStartClick} className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 dark:from-blue-500 dark:to-indigo-600 dark:hover:from-blue-600 dark:hover:to-indigo-700 text-white font-bold py-5 px-6 rounded-2xl shadow-xl shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-3 text-xl tracking-wide group border border-blue-500 dark:border-blue-400">
                 Start Survey <ChevronRight className="w-7 h-7 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
@@ -754,7 +787,9 @@
                         <div className="grid grid-cols-1 gap-4">
                           {data.monthly[viewMonth].responses.map((resp, i) => (
                             <div key={i} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                              <div className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-2 uppercase">{new Date(resp.date).toLocaleString()}</div>
+                              <div className="text-xs text-slate-400 dark:text-slate-500 font-bold mb-2 uppercase">
+                                  {isNaN(new Date(resp.date).getTime()) ? resp.date : new Date(resp.date).toLocaleString('en-US')}
+                              </div>
                               {resp.isText ? (
                                 <p className="text-slate-800 dark:text-slate-200 font-medium text-lg">"{resp.value}"</p>
                               ) : (
@@ -957,7 +992,7 @@
                   <h2 className="text-2xl sm:text-3xl font-bold font-serif text-blue-900 dark:text-blue-300">Patient Details</h2>
                   <p className="text-blue-700 dark:text-blue-400/80 mt-1">Please provide your visit information.</p>
                 </div>
-                <button type="button" onClick={() => setView('home')} className="text-sm font-bold text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white bg-white dark:bg-slate-800 px-4 py-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-2 transition-colors"><X className="w-4 h-4"/> Cancel</button>
+                <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-sm font-bold text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white bg-white dark:bg-slate-800 px-4 py-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-2 transition-colors"><ArrowLeft className="w-4 h-4"/> Back to Top</button>
               </div>
               <div className="p-6 sm:p-10 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {intakeQuestions.map((q) => (
@@ -1203,10 +1238,16 @@
           flatDepartments.forEach(d => structuredComments[d.id][mk] = { comments: [] });
         });
 
-        // Filter responses for the entire CURRENT MONTH for the monitoring tab
+        // FIXED EXPLICIT SORTING: Filter responses for the CURRENT MONTH and force sort by Newest First
         const todaysResponses = responses.filter(r => {
            if(!r || !r.timestamp) return false;
            return getMonthString(new Date(r.timestamp)) === currentMonthKey;
+        }).sort((a, b) => {
+            const dateA = new Date(a.timestamp);
+            const dateB = new Date(b.timestamp);
+            if (isNaN(dateA.getTime())) return 1;
+            if (isNaN(dateB.getTime())) return -1;
+            return dateB - dateA;
         });
 
         responses.forEach(res => {
@@ -1548,7 +1589,11 @@
                                  {analytics.todaysResponses.map(r => (
                                     <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                        <td className="p-5 text-sm font-medium">
-                                          {new Date(r.timestamp).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} at {new Date(r.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                          {isNaN(new Date(r.timestamp).getTime()) ? r.timestamp : (
+                                              <>
+                                                {new Date(r.timestamp).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} at {new Date(r.timestamp).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}
+                                              </>
+                                          )}
                                        </td>
                                        <td className="p-5 font-black text-lg">{r.general?.patient_name || 'Anonymous'}</td>
                                        <td className="p-5 font-medium bg-slate-50 dark:bg-slate-900/50">{r.general?.room_number || 'N/A'}</td>
@@ -1669,12 +1714,12 @@
                      <div key={dept.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
                        
                        <div className="bg-slate-50 dark:bg-slate-800/50 p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b border-slate-200 dark:border-slate-700">
-                          <span className="font-black text-slate-800 dark:text-white text-xl flex items-center gap-3"><Edit2 className="w-6 h-6 text-slate-400" /> {dept.title}</span>
-                          <label className="flex items-center gap-4 cursor-pointer group bg-white dark:bg-slate-700 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-sm hover:border-blue-300 dark:hover:border-blue-500 transition-colors">
-                            <span className="text-sm font-black text-slate-500 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-white uppercase tracking-wide">Survey Visibility</span>
-                            <div className={`w-14 h-7 rounded-full p-1 transition-colors shadow-inner ${activeDepartments[dept.id] ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}><div className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform ${activeDepartments[dept.id] ? 'translate-x-7' : 'translate-x-0'}`}></div></div>
-                            <input type="checkbox" className="hidden" checked={activeDepartments[dept.id]} onChange={() => setActiveDepartments(prev => ({...prev, [dept.id]: !prev[dept.id]}))} />
-                          </label>
+                         <span className="font-black text-slate-800 dark:text-white text-xl flex items-center gap-3"><Edit2 className="w-6 h-6 text-slate-400" /> {dept.title}</span>
+                         <label className="flex items-center gap-4 cursor-pointer group bg-white dark:bg-slate-700 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-600 shadow-sm hover:border-blue-300 dark:hover:border-blue-500 transition-colors">
+                           <span className="text-sm font-black text-slate-500 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-white uppercase tracking-wide">Survey Visibility</span>
+                           <div className={`w-14 h-7 rounded-full p-1 transition-colors shadow-inner ${activeDepartments[dept.id] ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}><div className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform ${activeDepartments[dept.id] ? 'translate-x-7' : 'translate-x-0'}`}></div></div>
+                           <input type="checkbox" className="hidden" checked={activeDepartments[dept.id]} onChange={() => setActiveDepartments(prev => ({...prev, [dept.id]: !prev[dept.id]}))} />
+                         </label>
                        </div>
                        
                        <div className="p-6 sm:p-8 space-y-4">
