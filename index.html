@@ -111,7 +111,7 @@
         return flat;
     };
 
-    const VERSION_KEY = "tdmh_system_v18";
+    const VERSION_KEY = "tdmh_system_v21"; // Incremented version to ensure fresh load
 
     function App() {
       const [view, setView] = useState('home'); 
@@ -404,17 +404,37 @@
             }
 
             @media print {
-              @page { size: letter portrait; margin: 0; }
+              @page { size: auto; margin: 10mm; }
               html, body { 
                 -webkit-print-color-adjust: exact !important; 
                 print-color-adjust: exact !important; 
-                margin: 0; padding: 0; width: 100%; height: 100%;
+                margin: 0; padding: 0; width: 100% !important; height: auto !important;
+                background: white !important; color: black !important;
               }
               
-              header, button.fixed, .fixed.bottom-3, .fixed.inset-0.z-0, .no-print { display: none !important; }
+              header, button, .fixed.bottom-3, .fixed.inset-0.z-0, .no-print { display: none !important; }
               
-              body.printing-qr { background-color: #f8fafc !important; overflow: hidden !important; }
-              body.printing-qr.dark { background-color: #0f172a !important; }
+              /* Reset ALL scrollable containers to allow natural page breaks */
+              .custom-scrollbar, .overflow-x-auto, .overflow-y-auto, .overflow-hidden {
+                 overflow: visible !important;
+                 max-height: none !important;
+              }
+              
+              /* Allow the main dashboard to flow naturally */
+              .print-dashboard {
+                 position: static !important;
+                 height: auto !important;
+                 box-shadow: none !important;
+                 border: none !important;
+              }
+              
+              /* Make tables break properly */
+              table { width: 100% !important; border-collapse: collapse !important; table-layout: auto !important; }
+              tr { page-break-inside: avoid !important; }
+              td, th { white-space: normal !important; word-wrap: break-word !important; }
+              * { color: black !important; border-color: #cbd5e1 !important; }
+              
+              body.printing-qr { background-color: white !important; overflow: hidden !important; }
               
               body.printing-qr #root, body.printing-qr main { 
                   max-width: none !important; width: 100vw !important; height: 100vh !important; 
@@ -433,13 +453,6 @@
                   transform: scale(0.85); transform-origin: center center;
                   width: 100%; display: flex; justify-content: center;
               }
-
-              body:not(.printing-qr) * { visibility: hidden; background: white; }
-              body:not(.printing-qr) .print-dashboard, body:not(.printing-qr) .print-dashboard * { visibility: visible; color: black !important; }
-              body:not(.printing-qr) .print-dashboard { position: absolute; left: 0; top: 0; width: 100%; height: auto; margin: 0; padding: 0; background: white !important; box-shadow: none !important; border: none !important; display: block !important; }
-              
-              body.printing-modal .print-modal-content, body.printing-modal .print-modal-content * { visibility: visible; color: black !important; }
-              body.printing-modal .print-modal-content { position: absolute; left: 0; top: 0; width: 100%; height: auto; box-shadow: none; border: none; }
             }
           `}} />
 
@@ -453,7 +466,7 @@
           )}
 
           {confirmSync && (
-             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 no-print">
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-2xl max-w-md w-full text-center border border-slate-200 dark:border-slate-700">
                    <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto mb-6"><RefreshCw className="w-10 h-10"/></div>
                    <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2 font-serif">Confirm Sync</h3>
@@ -466,7 +479,7 @@
              </div>
           )}
 
-          <div className="fixed inset-0 z-0 pointer-events-none transition-colors duration-700">
+          <div className="fixed inset-0 z-0 pointer-events-none transition-colors duration-700 no-print">
              <div className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-700 ${isDark ? 'opacity-[0.10] mix-blend-luminosity' : 'opacity-20 mix-blend-multiply'}`} style={{ backgroundImage: `url('${BACKGROUND_URL}')` }} />
              <div className={`absolute inset-0 transition-opacity duration-700 ${isDark ? 'bg-slate-950/80 opacity-100' : 'bg-transparent opacity-0'}`} />
           </div>
@@ -602,9 +615,9 @@
        else if (subTab === 'negative') currentList = negList;
 
        return (
-         <div className="space-y-6 sm:space-y-8 animate-in slide-in-from-bottom-2 no-print font-sans">
+         <div className="space-y-6 sm:space-y-8 animate-in slide-in-from-bottom-2 font-sans">
             
-            <div className="bg-white dark:bg-slate-800 rounded-3xl p-3 sm:p-4 shadow-sm border border-slate-200 dark:border-slate-700 transition-colors">
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-3 sm:p-4 shadow-sm border border-slate-200 dark:border-slate-700 transition-colors no-print">
                <div className="flex flex-wrap gap-2 sm:gap-4">
                   {['all', 'inbox', 'positive', 'mixed', 'negative'].map(tab => {
                      let count = 0;
@@ -626,7 +639,7 @@
 
             <div className="bg-slate-100/50 dark:bg-slate-900/50 p-4 sm:p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 min-h-[400px]">
                
-               <div className="flex flex-col sm:flex-row gap-4 mb-6">
+               <div className="flex flex-col sm:flex-row gap-4 mb-6 no-print">
                   <div className="flex-1">
                      <label className="block text-slate-600 dark:text-slate-400 font-black text-xs mb-2 uppercase tracking-widest">Filter by Month</label>
                      <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm" value={selectedMonth} onChange={e => onMonthChange(e.target.value)}>
@@ -643,7 +656,7 @@
                            <h3 className="font-black text-2xl text-slate-800 dark:text-white font-serif uppercase tracking-widest">ALL COMMENTS</h3>
                            <p className="text-blue-600 dark:text-blue-400 font-bold text-sm tracking-widest uppercase mt-1">SURVEY RESULTS • {selectedMonth === 'all' ? 'All Time' : selectedMonth}</p>
                         </div>
-                        <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors shadow-sm"><Printer className="w-4 h-4" /> Print List</button>
+                        <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors shadow-sm no-print"><Printer className="w-4 h-4" /> Print List</button>
                      </div>
                      <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left min-w-[800px]">
@@ -680,17 +693,17 @@
                                  }
 
                                  return (
-                                    <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                       <td className="p-5 border-r border-slate-100 dark:border-slate-700 text-sm whitespace-nowrap">
+                                    <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors break-inside-avoid">
+                                       <td className="p-5 border-r border-slate-100 dark:border-slate-700 text-sm whitespace-nowrap align-top">
                                           {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
                                        </td>
-                                       <td className="p-5 border-r border-slate-100 dark:border-slate-700 font-bold uppercase text-xs tracking-wider text-slate-500 dark:text-slate-400">
+                                       <td className="p-5 border-r border-slate-100 dark:border-slate-700 font-bold uppercase text-xs tracking-wider text-slate-500 dark:text-slate-400 align-top">
                                           {c.deptName}
                                        </td>
-                                       <td className="p-5 italic leading-relaxed text-slate-700 dark:text-slate-300 min-w-[300px]">
+                                       <td className="p-5 italic leading-relaxed text-slate-700 dark:text-slate-300 min-w-[300px] align-top">
                                           "{c.text}"
                                        </td>
-                                       <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700">
+                                       <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700 align-top">
                                           {displayStatus && <span className={`text-xs font-black uppercase tracking-widest ${statusColor}`}>{displayStatus}</span>}
                                        </td>
                                     </tr>
@@ -708,11 +721,11 @@
                ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                      {currentList.map(c => (
-                        <div key={c.id} className="bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
+                        <div key={c.id} className="bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between break-inside-avoid print:mb-4">
                            <div>
                               <div className="bg-blue-50 dark:bg-slate-700 text-blue-800 dark:text-slate-300 px-3 py-1 rounded-lg font-black text-xs mb-4 inline-block uppercase tracking-wider border border-blue-100 dark:border-slate-600 shadow-sm">{c.deptName}</div>
                               <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed mb-4">"{c.text}"</p>
-                              <div className="flex flex-wrap items-center gap-3 text-sm mb-6 border-t border-slate-100 dark:border-slate-700 pt-4">
+                              <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-3 text-sm mb-6 border-t border-slate-100 dark:border-slate-700 pt-4">
                                  <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
                                     {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
                                  </span>
@@ -722,9 +735,9 @@
                            </div>
                            
                            {!isDeptView && (
-                              <div className="bg-slate-50 dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                              <div className="bg-slate-50 dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 no-print">
                                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-widest text-center">Categorize As:</p>
-                                 <div className="flex flex-wrap gap-2">
+                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                                     <button onClick={() => handleSetCat(c.id, 'positive')} className={`flex-1 min-w-[80px] py-2 rounded-lg font-bold text-sm transition-colors shadow-sm ${commentCats[c.id] === 'positive' ? 'bg-green-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-green-50 dark:hover:bg-green-900/30'}`}>👍 Pos</button>
                                     <button onClick={() => handleSetCat(c.id, 'mixed')} className={`flex-1 min-w-[80px] py-2 rounded-lg font-bold text-sm transition-colors shadow-sm ${commentCats[c.id] === 'mixed' ? 'bg-amber-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-amber-50 dark:hover:bg-amber-900/30'}`}>⚖️ Mix</button>
                                     <button onClick={() => handleSetCat(c.id, 'negative')} className={`flex-1 min-w-[80px] py-2 rounded-lg font-bold text-sm transition-colors shadow-sm ${commentCats[c.id] === 'negative' ? 'bg-red-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-red-50 dark:hover:bg-red-900/30'}`}>👎 Neg</button>
@@ -780,7 +793,14 @@
     }
 
     function LoginSelectView({ loginMode, setView, setActiveDeptId, departments, flatDepartments, setAuthUser, setLoginToast }) {
-      const [selectedDept, setSelectedDept] = useState(flatDepartments[0].id);
+      // Filter out the parent "checkbox" departments from the login dropdown
+      const loginableDepartments = flatDepartments.filter(d => {
+         // Keep it if it's a standard department OR if it's a sub-department
+         // Exclude it if it's a 'checkbox' type (which is just a parent grouping)
+         return d.type !== 'checkbox';
+      });
+
+      const [selectedDept, setSelectedDept] = useState(loginableDepartments.length > 0 ? loginableDepartments[0].id : '');
       const [password, setPassword] = useState('');
       const [error, setError] = useState('');
       const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -791,7 +811,7 @@
         setError('');
         
         const id = loginMode === 'admin' ? 'admin' : selectedDept;
-        const name = loginMode === 'admin' ? 'Master Admin' : flatDepartments.find(d => d.id === selectedDept)?.title;
+        const name = loginMode === 'admin' ? 'Master Admin' : loginableDepartments.find(d => d.id === selectedDept)?.title;
         
         try {
           const url = `${APPS_SCRIPT_URL}?action=login&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&password=${encodeURIComponent(password)}`;
@@ -837,7 +857,7 @@
                      <div>
                         <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Select Department</label>
                         <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-white font-medium outline-none focus:border-blue-500 transition-colors shadow-sm" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
-                           {flatDepartments.map(d => <option key={d.id} value={d.id}>{d.type === 'sub' ? `— ${d.title}` : d.title}</option>)}
+                           {loginableDepartments.map(d => <option key={d.id} value={d.id}>{d.type === 'sub' ? `— ${d.title}` : d.title}</option>)}
                         </select>
                      </div>
                   )}
@@ -1713,7 +1733,7 @@
                         We divide the Total Points Earned by the Maximum Possible Points to get the percentage. 
                      </p>
                    </div>
-                   <button onClick={() => window.print()} className="bg-slate-800 dark:bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-blue-700 shadow-md no-print font-sans"><Printer className="w-5 h-5" /> Print Table</button>
+                   <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 shadow-md no-print font-sans"><Printer className="w-5 h-5" /> Print Table</button>
                  </div>
 
                  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm overflow-hidden flex flex-col transition-colors">
@@ -1786,7 +1806,7 @@
                     </div>
                  </div>
 
-                 <div className="bg-slate-100/50 dark:bg-slate-900/50 p-4 sm:p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-4 mb-6">
+                 <div className="bg-slate-100/50 dark:bg-slate-900/50 p-4 sm:p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-4 mb-6 no-print">
                     <div className="flex-1">
                        <label className="block text-slate-600 dark:text-slate-400 font-black text-xs mb-2 uppercase tracking-widest">Filter by Month</label>
                        <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm" value={selectedArchiveMonth} onChange={e => setSelectedArchiveMonth(e.target.value)}>
@@ -1807,44 +1827,44 @@
                  </div>
 
                  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
-                    <div className="overflow-x-auto custom-scrollbar">
-                       <table className="w-full text-left min-w-[1000px]">
-                          <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700">
+                    <div className="overflow-x-auto custom-scrollbar print:overflow-visible">
+                       <table className="w-full text-left min-w-[1000px] print:min-w-0 print:w-full print:border-collapse">
+                          <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700 print:bg-transparent print:text-black">
                              <tr>
-                                <th className="p-5 w-40">Submission Date</th>
-                                <th className="p-5 w-32">Report Month</th>
-                                <th className="p-5 w-48">Department</th>
-                                <th className="p-5">Case / Complaint</th>
-                                <th className="p-5">Action Taken & Eval</th>
-                                <th className="p-5 w-48 text-center border-l border-slate-200 dark:border-slate-700">Status</th>
+                                <th className="p-5 w-40 print:p-2 print:border">Submission Date</th>
+                                <th className="p-5 w-32 print:p-2 print:border">Report Month</th>
+                                <th className="p-5 w-48 print:p-2 print:border">Department</th>
+                                <th className="p-5 print:p-2 print:border">Case / Complaint</th>
+                                <th className="p-5 print:p-2 print:border">Action Taken & Eval</th>
+                                <th className="p-5 w-48 text-center border-l border-slate-200 dark:border-slate-700 print:p-2 print:border">Status</th>
                              </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200 font-medium text-sm">
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200 font-medium text-sm print:text-black">
                              {filteredCqiReports.length === 0 ? (
-                                <tr><td colSpan="6" className="p-10 text-center text-slate-500 dark:text-slate-400 italic font-bold">No reports have been submitted yet.</td></tr>
+                                <tr><td colSpan="6" className="p-10 text-center text-slate-500 dark:text-slate-400 italic font-bold print:border">No reports have been submitted yet.</td></tr>
                              ) : (
                                 filteredCqiReports.map((rep, i) => {
-                                   let statusColor = "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800";
-                                   if (rep.Status === 'Closed') statusColor = "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30";
-                                   else if (rep.Status === 'Pending') statusColor = "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30";
-                                   else if (rep.Status === 'For Monitoring' || rep.Status === 'For Continuous Monitoring') statusColor = "text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30";
+                                   let statusColor = "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 print:text-black print:bg-transparent";
+                                   if (rep.Status === 'Closed') statusColor = "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 print:text-black print:bg-transparent";
+                                   else if (rep.Status === 'Pending') statusColor = "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30 print:text-black print:bg-transparent";
+                                   else if (rep.Status === 'For Monitoring' || rep.Status === 'For Continuous Monitoring') statusColor = "text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 print:text-black print:bg-transparent";
 
                                    return (
-                                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 text-xs">
+                                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors break-inside-avoid">
+                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 text-xs print:p-2 print:border">
                                             {isNaN(new Date(rep.Timestamp).getTime()) ? rep.Timestamp : new Date(rep.Timestamp).toLocaleString('en-US', {month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'})}
                                          </td>
-                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-black text-slate-800 dark:text-slate-300">{rep.Report_Month}</td>
-                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-bold text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">{rep.Department}</td>
-                                         <td className="p-5">
+                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-black text-slate-800 dark:text-slate-300 print:p-2 print:border">{rep.Report_Month}</td>
+                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-bold text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400 print:p-2 print:border">{rep.Department}</td>
+                                         <td className="p-5 print:p-2 print:border">
                                             <span className="font-bold text-slate-500 dark:text-slate-400 mr-2 text-xs">Case {rep.Case_No}:</span>
                                             <span className="italic">"{rep.Complaint}"</span>
                                          </td>
-                                         <td className="p-5">
+                                         <td className="p-5 print:p-2 print:border">
                                             <div className="text-xs mb-1"><span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Action:</span> {rep.Action_Taken || '-'}</div>
                                             <div className="text-xs"><span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Eval:</span> {rep.Evaluation || '-'}</div>
                                          </td>
-                                         <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700">
+                                         <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700 print:p-2 print:border">
                                             <span className={`px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase inline-block whitespace-nowrap border border-current ${statusColor}`}>{rep.Status}</span>
                                          </td>
                                       </tr>
@@ -1987,19 +2007,6 @@
                 localScore += Number(score) || 0; localCount++;
              });
              commentData = res.departments[deptId].comment;
-          }
-
-          const origDef = departments.find(d => d.id === deptId);
-          if (origDef && origDef.type === 'checkbox') {
-             origDef.services.forEach(svc => {
-                const subId = `${deptId}_${svc}`;
-                if (res.departments[subId] && !res.departments[subId].skipped && res.departments[subId].answers) {
-                    Object.values(res.departments[subId].answers).forEach(score => {
-                        localScore += Number(score) || 0; localCount++;
-                    });
-                    if (res.departments[subId].comment) commentData = (commentData ? commentData + " | " : "") + res.departments[subId].comment;
-                }
-             });
           }
 
           if (localCount > 0) {
@@ -2200,7 +2207,7 @@
                        </div>
                     </div>
 
-                    <div className="bg-slate-100/50 dark:bg-slate-900/50 p-4 sm:p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-4 mb-6">
+                    <div className="bg-slate-100/50 dark:bg-slate-900/50 p-4 sm:p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-4 mb-6 no-print">
                        <div className="flex-1">
                           <label className="block text-slate-600 dark:text-slate-400 font-black text-xs mb-2 uppercase tracking-widest">Filter by Month</label>
                           <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm" value={selectedArchiveMonth} onChange={e => setSelectedArchiveMonth(e.target.value)}>
@@ -2208,45 +2215,48 @@
                              {monthlyData.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
                           </select>
                        </div>
+                       <div className="flex items-end hidden sm:flex">
+                          <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 shadow-sm no-print h-full min-w-[140px]"><Printer className="w-5 h-5" /> Print List</button>
+                       </div>
                     </div>
 
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
-                       <div className="overflow-x-auto custom-scrollbar">
-                          <table className="w-full text-left min-w-[900px]">
-                             <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700">
+                       <div className="overflow-x-auto custom-scrollbar print:overflow-visible">
+                          <table className="w-full text-left min-w-[900px] print:min-w-0 print:w-full print:border-collapse">
+                             <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700 print:bg-transparent print:text-black">
                                 <tr>
-                                   <th className="p-5 w-40">Submission Date</th>
-                                   <th className="p-5 w-32">Report Month</th>
-                                   <th className="p-5">Case / Complaint</th>
-                                   <th className="p-5">Action Taken & Eval</th>
-                                   <th className="p-5 w-48 text-center border-l border-slate-200 dark:border-slate-700">Status</th>
+                                   <th className="p-5 w-40 print:p-2 print:border">Submission Date</th>
+                                   <th className="p-5 w-32 print:p-2 print:border">Report Month</th>
+                                   <th className="p-5 print:p-2 print:border">Case / Complaint</th>
+                                   <th className="p-5 print:p-2 print:border">Action Taken & Eval</th>
+                                   <th className="p-5 w-48 text-center border-l border-slate-200 dark:border-slate-700 print:p-2 print:border">Status</th>
                                 </tr>
                              </thead>
-                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200 font-medium text-sm">
+                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200 font-medium text-sm print:text-black">
                                 {filteredCqiReports.length === 0 ? (
-                                   <tr><td colSpan="5" className="p-10 text-center text-slate-500 dark:text-slate-400 italic font-bold">No reports have been submitted yet.</td></tr>
+                                   <tr><td colSpan="5" className="p-10 text-center text-slate-500 dark:text-slate-400 italic font-bold print:border">No reports have been submitted yet.</td></tr>
                                 ) : (
                                    filteredCqiReports.map((rep, i) => {
-                                      let statusColor = "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800";
-                                      if (rep.Status === 'Closed') statusColor = "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30";
-                                      else if (rep.Status === 'Pending') statusColor = "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30";
-                                      else if (rep.Status === 'For Monitoring' || rep.Status === 'For Continuous Monitoring') statusColor = "text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30";
+                                      let statusColor = "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 print:text-black print:bg-transparent";
+                                      if (rep.Status === 'Closed') statusColor = "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 print:text-black print:bg-transparent";
+                                      else if (rep.Status === 'Pending') statusColor = "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30 print:text-black print:bg-transparent";
+                                      else if (rep.Status === 'For Monitoring' || rep.Status === 'For Continuous Monitoring') statusColor = "text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 print:text-black print:bg-transparent";
 
                                       return (
-                                         <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                            <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 text-xs">
+                                         <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors break-inside-avoid">
+                                            <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 text-xs print:p-2 print:border">
                                                {isNaN(new Date(rep.Timestamp).getTime()) ? rep.Timestamp : new Date(rep.Timestamp).toLocaleString('en-US', {month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'})}
                                             </td>
-                                            <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-black text-slate-800 dark:text-slate-300">{rep.Report_Month}</td>
-                                            <td className="p-5">
+                                            <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-black text-slate-800 dark:text-slate-300 print:p-2 print:border">{rep.Report_Month}</td>
+                                            <td className="p-5 print:p-2 print:border">
                                                <span className="font-bold text-slate-500 dark:text-slate-400 mr-2 text-xs">Case {rep.Case_No}:</span>
                                                <span className="italic">"{rep.Complaint}"</span>
                                             </td>
-                                            <td className="p-5">
+                                            <td className="p-5 print:p-2 print:border">
                                                <div className="text-xs mb-1"><span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Action:</span> {rep.Action_Taken || '-'}</div>
                                                <div className="text-xs"><span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Eval:</span> {rep.Evaluation || '-'}</div>
                                             </td>
-                                            <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700">
+                                            <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700 print:p-2 print:border">
                                                <span className={`px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase inline-block whitespace-nowrap border border-current ${statusColor}`}>{rep.Status}</span>
                                             </td>
                                          </tr>
