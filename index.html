@@ -71,9 +71,16 @@
       { id: 'cashier', title: 'Cashier', type: 'standard', questions: [{ id: 'cas_1', text: 'How was your experience with Our Cashier Service/Staff(s)?' }] },
       { id: 'billing', title: 'Billing', type: 'standard', questions: [{ id: 'bil_1', text: 'How was your experience with our Billing Service/Staff(s)?' }] },
       { id: 'philhealth', title: 'Philhealth', type: 'standard', questions: [{ id: 'phi_1', text: 'How was your experience with the Philhealth Service/Staff(s)?' }] },
-      { id: 'housekeeping', title: 'General Services: Housekeeping', type: 'standard', questions: [{ id: 'hsk_1', text: 'How was your experience with our Housekeeping Service/Staff(s)?' }] },
-      { id: 'linens', title: 'General Services: Linens', type: 'standard', questions: [{ id: 'lin_1', text: 'How was your experience with our Linen Service/Staff(s)?' }] },
-      { id: 'maintenance', title: 'General Services: Room Facilities & Utilities (Maintenance)', type: 'standard', questions: [{ id: 'mnt_1', text: 'How was your experience with our Maintenance Services/Staff(s)?' }] }
+      { 
+        id: 'general', title: 'General Services', type: 'checkbox', 
+        services: ['Housekeeping', 'Linens', 'Room Facilities & Utilities (Maintenance & Elevator)', 'Security'],
+        subTitles: {
+          'Housekeeping': 'General Services: Housekeeping',
+          'Linens': 'General Services: Linens',
+          'Room Facilities & Utilities (Maintenance & Elevator)': 'General Services: Room Facilities & Utilities (Maintenance & Elevator)',
+          'Security': 'General Services: Security'
+        }
+      }
     ];
 
     const DEFAULT_INTAKE_QUESTIONS = [
@@ -104,14 +111,15 @@
             flat.push(d); 
             if (d.type === 'checkbox' && d.services) {
                 d.services.forEach(svc => {
-                    flat.push({ id: `${d.id}_${svc}`, title: `${d.title} (${svc})`, type: 'sub', parentId: d.id });
+                    const subTitle = d.subTitles ? d.subTitles[svc] : `${d.title} (${svc})`;
+                    flat.push({ id: `${d.id}_${svc}`, title: subTitle, type: 'sub', parentId: d.id });
                 });
             }
         });
         return flat;
     };
 
-    const VERSION_KEY = "tdmh_system_v21"; // Incremented version to ensure fresh load
+    const VERSION_KEY = "tdmh_system_v20"; // Forced update to clear cache and adopt perfect General Services grouping
 
     function App() {
       const [view, setView] = useState('home'); 
@@ -2007,6 +2015,19 @@
                 localScore += Number(score) || 0; localCount++;
              });
              commentData = res.departments[deptId].comment;
+          }
+
+          const origDef = departments.find(d => d.id === deptId);
+          if (origDef && origDef.type === 'checkbox') {
+             origDef.services.forEach(svc => {
+                const subId = `${deptId}_${svc}`;
+                if (res.departments[subId] && !res.departments[subId].skipped && res.departments[subId].answers) {
+                    Object.values(res.departments[subId].answers).forEach(score => {
+                        localScore += Number(score) || 0; localCount++;
+                    });
+                    if (res.departments[subId].comment) commentData = (commentData ? commentData + " | " : "") + res.departments[subId].comment;
+                }
+             });
           }
 
           if (localCount > 0) {
