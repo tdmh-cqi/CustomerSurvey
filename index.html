@@ -58,7 +58,7 @@
     const LOGO_URL = `${GITHUB_BASE_URL}/tdmh-logo.png`;
     const BACKGROUND_URL = `${GITHUB_BASE_URL}/tdmh-background.jpg`;
 
-    // APPS SCRIPT WEB APP URL
+    // APPS SCRIPT WEB APP URL (Make sure this matches your latest deployed URL)
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw93n00Ey6NoG92Nvcli_uAzeDINXBOL_i6El6txQvoYEp4pLFlQ5BSyxKUqUiI2DUCiQ/exec"; 
 
     // DEFAULT DEPARTMENTS
@@ -106,6 +106,7 @@
     };
     const ALL_MONTHS_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     
+    // DYNAMIC FLATTENER
     const getFlatDepartments = (depts) => {
         let flat = [];
         depts.forEach(d => {
@@ -173,6 +174,18 @@
         }
       }, [isDark]);
 
+      // --- GLOBAL BODY SCROLL LOCK ---
+      // This perfectly prevents the background from scrolling when ANY modal/container is open
+      useEffect(() => {
+        if (drillDown || showSuccess || iframeUrl || confirmSync) {
+          document.body.style.overflow = 'hidden';
+        } else {
+          document.body.style.overflow = '';
+        }
+        // Cleanup function
+        return () => { document.body.style.overflow = ''; };
+      }, [drillDown, showSuccess, iframeUrl, confirmSync]);
+
       useEffect(() => {
         if (view === 'qr') {
           document.body.classList.add('printing-qr');
@@ -215,7 +228,9 @@
         try { return saved ? JSON.parse(saved) : DEFAULT_DEPARTMENTS; } catch(e) { return DEFAULT_DEPARTMENTS; }
       });
       
+      // LEGACY DATA STATES
       const [legacy2025, setLegacy2025] = useState(null);
+      const [legacy2026, setLegacy2026] = useState(null);
 
       const [activeDepartments, setActiveDepartments] = useState(() => {
         const defaultActive = DEFAULT_DEPARTMENTS.reduce((acc, dept) => ({ ...acc, [dept.id]: true }), {});
@@ -239,11 +254,16 @@
       useEffect(() => {
         if (!APPS_SCRIPT_URL) return;
         
-        // Background fetch for 2025 Legacy Vault
+        // Background fetches for Legacy Vaults
         fetch(`${APPS_SCRIPT_URL}?action=get_legacy_2025`)
           .then(res => res.json())
           .then(data => setLegacy2025(data))
-          .catch(err => console.log("Legacy fetch error:", err));
+          .catch(err => console.log("Legacy 2025 fetch error:", err));
+
+        fetch(`${APPS_SCRIPT_URL}?action=get_legacy_2026`)
+          .then(res => res.json())
+          .then(data => setLegacy2026(data))
+          .catch(err => console.log("Legacy 2026 fetch error:", err));
 
         const fetchHistory = async () => {
           if (view === 'admin' || view === 'dept') setIsSyncing(true);
@@ -394,7 +414,7 @@
       }
 
       return (
-        <div className={`min-h-screen transition-colors duration-500 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 selection:bg-blue-200 dark:selection:bg-blue-800 relative pro-font flex flex-col ${(drillDown || showSuccess || iframeUrl) ? 'overflow-hidden' : ''}`}>
+        <div className={`min-h-screen transition-colors duration-500 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 selection:bg-blue-200 dark:selection:bg-blue-800 relative pro-font flex flex-col`}>
           <style dangerouslySetInnerHTML={{__html: `
             @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
             .pro-font { font-family: 'Lora', serif; }
@@ -435,34 +455,31 @@
               
               header, button, .fixed.bottom-3, .fixed.inset-0.z-0, .no-print { display: none !important; }
               
-              /* Reset ALL scrollable containers to allow natural page breaks */
-              .custom-scrollbar, .overflow-x-auto, .overflow-y-auto, .overflow-hidden {
+              /* Force all scrollable containers and tables to expand fully for clean printing */
+              .custom-scrollbar, .overflow-x-auto, .overflow-y-auto, .overflow-hidden, .max-h-[600px], .max-h-[90vh], .print-modal-content {
                  overflow: visible !important;
                  max-height: none !important;
+                 height: auto !important;
               }
               
-              /* Allow the main dashboard to flow naturally */
-              .print-dashboard {
+              .print-dashboard, .print-modal-content {
                  position: static !important;
-                 height: auto !important;
                  box-shadow: none !important;
                  border: none !important;
+                 width: 100% !important;
+                 max-width: none !important;
               }
               
-              /* --- HIGH-CONTRAST PRINT TABLES --- */
               table { width: 100% !important; border-collapse: collapse !important; table-layout: auto !important; margin-bottom: 20px !important; }
               tr { page-break-inside: avoid !important; }
               td, th { 
                   white-space: normal !important; 
                   word-wrap: break-word !important; 
-                  border: 1.5px solid #64748b !important; /* Crisp, solid grid lines for every cell */
+                  border: 1.5px solid #64748b !important;
                   color: black !important; 
               }
-              thead th {
-                  background-color: #f1f5f9 !important; /* Light gray header */
-                  color: black !important;
-              }
-              /* Strip weird outer container borders and roundness in print */
+              thead th { background-color: #f1f5f9 !important; color: black !important; }
+              
               .print\:border-0 { border: none !important; }
               .print\:shadow-none { box-shadow: none !important; }
               .print\:rounded-none { border-radius: 0 !important; }
@@ -489,15 +506,13 @@
             }
           `}} />
 
-          {drillDown && <style>{`body { class: "printing-modal" }`}</style>}
-          {!drillDown && <style>{`body { class: "" }`}</style>}
-
           {loginToast && (
              <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[100] bg-green-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 font-sans font-bold">
                 <Check className="w-5 h-5"/> {loginToast}
              </div>
           )}
 
+          {}
           {confirmSync && (
              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 no-print">
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-2xl max-w-md w-full text-center border border-slate-200 dark:border-slate-700">
@@ -512,13 +527,13 @@
              </div>
           )}
 
-          {/* NEW: IN-APP IFRAME DOCUMENT VIEWER */}
+          {/* IN-APP IFRAME DOCUMENT VIEWER */}
           {iframeUrl && (
              <div className="fixed inset-0 z-[120] bg-slate-900/90 backdrop-blur-sm flex flex-col p-4 animate-in fade-in duration-300 no-print font-sans">
                 <div className="flex justify-between items-center mb-4 bg-white/10 p-4 rounded-2xl backdrop-blur-md">
                    <div className="text-white font-black text-lg flex items-center gap-3"><FileText className="w-6 h-6 text-blue-400"/> Document Viewer</div>
                    <div className="flex gap-4">
-                      <a href={iframeUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-white hover:text-blue-400 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-colors text-sm font-bold"><ExternalLink className="w-4 h-4"/> Open in Tab</a>
+                      <a href={iframeUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-white hover:text-blue-400 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-colors text-sm font-bold" title="Open in a new tab to print or edit"><ExternalLink className="w-4 h-4"/> Open in Tab</a>
                       <button onClick={() => setIframeUrl(null)} className="flex items-center gap-2 text-white hover:text-red-400 bg-white/10 hover:bg-red-500/20 px-4 py-2 rounded-xl transition-colors text-sm font-bold"><X className="w-4 h-4"/> Close</button>
                    </div>
                 </div>
@@ -611,8 +626,8 @@
                </div>
             )}
             {view === 'login' && <LoginSelectView loginMode={loginMode} setView={setView} setActiveDeptId={setActiveDeptId} departments={departments} flatDepartments={flatDepartments} setAuthUser={setAuthUser} setLoginToast={setLoginToast} />}
-            {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} flatDepartments={flatDepartments} drillDown={drillDown} setDrillDown={setDrillDown} commentCats={commentCats} setCommentCats={setCommentCats} intakeQuestions={intakeQuestions} setIntakeQuestions={setIntakeQuestions} handleHardRefresh={handleHardRefresh} cqiReports={cqiReports} legacy2025={legacy2025} setIframeUrl={setIframeUrl} />}
-            {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} flatDepartments={flatDepartments} commentCats={commentCats} setCommentCats={setCommentCats} cqiReports={cqiReports} legacy2025={legacy2025} setIframeUrl={setIframeUrl} />}
+            {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} flatDepartments={flatDepartments} drillDown={drillDown} setDrillDown={setDrillDown} commentCats={commentCats} setCommentCats={setCommentCats} intakeQuestions={intakeQuestions} setIntakeQuestions={setIntakeQuestions} handleHardRefresh={handleHardRefresh} cqiReports={cqiReports} legacy2025={legacy2025} legacy2026={legacy2026} setIframeUrl={setIframeUrl} />}
+            {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} flatDepartments={flatDepartments} commentCats={commentCats} setCommentCats={setCommentCats} cqiReports={cqiReports} legacy2025={legacy2025} legacy2026={legacy2026} setIframeUrl={setIframeUrl} />}
             {view === 'qr' && <QRGenerator />}
           </main>
 
@@ -626,7 +641,7 @@
       );
     }
 
-    function AdminDashboard({ responses, censusData, setCensusData, activeDepartments, setActiveDepartments, departments, setDepartments, flatDepartments, drillDown, setDrillDown, commentCats, setCommentCats, intakeQuestions, setIntakeQuestions, handleHardRefresh, cqiReports, legacy2025, setIframeUrl }) {
+    function AdminDashboard({ responses, censusData, setCensusData, activeDepartments, setActiveDepartments, departments, setDepartments, flatDepartments, drillDown, setDrillDown, commentCats, setCommentCats, intakeQuestions, setIntakeQuestions, handleHardRefresh, cqiReports, legacy2025, legacy2026, setIframeUrl }) {
       const [activeTab, setActiveTab] = useState('overview'); 
       const [newDeptName, setNewDeptName] = useState('');
       const [newQuestions, setNewQuestions] = useState({});
@@ -638,7 +653,7 @@
       const liveDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       const currentMonthKey = getMonthString(new Date());
 
-      // NEW: State for month filtering on the overview tab
+      // State for month filtering on the overview tab
       const [overviewMonth, setOverviewMonth] = useState(currentMonthKey);
 
       const [draftCensus, setDraftCensus] = useState(censusData[overviewMonth] || '');
@@ -691,7 +706,7 @@
         let responsesThisMonthCount = 0;
         const allCommentsArray = [];
 
-        // NEW: Filter responses specifically for the selected overviewMonth
+        // Filter responses specifically for the selected overviewMonth
         const todaysResponses = responses.filter(r => {
            if(!r || !r.timestamp) return false;
            return getMonthString(new Date(r.timestamp)) === overviewMonth;
@@ -723,7 +738,6 @@
                    genTallies[q.id].overall[ans]++;
                    genTallies[q.id].monthly[resMonth][ans]++;
                 }
-                // ENHANCED: Push patient name and room
                 genTallies[q.id].monthly[resMonth].responses.push({ date: res.timestamp, value: ans, isText: false, name: res.general?.patient_name, room: res.general?.room_number });
               } else {
                  genTallies[q.id].monthly[resMonth].responses.push({ date: res.timestamp, value: ans, isText: true, name: res.general?.patient_name, room: res.general?.room_number });
@@ -745,7 +759,6 @@
                  }
               });
 
-              // Track global satisfaction per month
               if (monthlySatData[resMonth] && resCount > 0) {
                  monthlySatData[resMonth].score += resScore;
                  monthlySatData[resMonth].max += (resCount * 3);
@@ -787,7 +800,7 @@
 
         const maxResponsesMonthly = Math.max(...Object.values(monthlyResponsesTally), 1); 
         
-        // NEW: Specific Month's Satisfaction
+        // Specific Month's Satisfaction
         const mSat = monthlySatData[overviewMonth];
         const overviewSatPct = mSat && mSat.max > 0 ? Math.min(Math.round((mSat.score / mSat.max) * 100), 100) : 0;
 
@@ -843,7 +856,6 @@
       }));
       const handleDeleteService = (deptId, idx) => setDepartments(departments.map(d => d.id === deptId ? { ...d, services: d.services.filter((_, i) => i !== idx) } : d));
 
-      // NEW: Calculate variables based on the overviewMonth specifically
       const currentCensus = parseInt(censusData[overviewMonth]) || 0;
       const currentOverviewCount = analytics.monthlyResponsesTally[overviewMonth] || 0;
       const currentResponseRate = currentCensus > 0 ? ((currentOverviewCount / currentCensus) * 100).toFixed(1) : 0;
@@ -873,7 +885,7 @@
           </div>
 
           <div className="flex border-b border-slate-200 dark:border-slate-700 px-4 sm:px-10 bg-slate-50/80 dark:bg-slate-900/80 overflow-x-auto custom-scrollbar no-print shrink-0 pb-1">
-            {['overview', 'monitoring', 'monthly report', 'feedback & CQI masterlist', 'status reports compilation', 'question configurations', '2025 historical vault'].map(tab => (
+            {['overview', 'monitoring', 'monthly report', 'feedback & CQI masterlist', 'status reports compilation', 'question configurations', '2026 historical vault', '2025 historical vault'].map(tab => (
               <button key={tab} onClick={()=>setActiveTab(tab)} className={`whitespace-nowrap py-5 px-4 sm:px-6 font-bold text-sm sm:text-base border-b-4 transition-colors capitalize ${activeTab === tab ? 'border-blue-600 dark:border-blue-400 text-blue-800 dark:text-blue-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}>
                 {tab}
               </button>
@@ -886,7 +898,6 @@
             {activeTab === 'overview' && (
               <div className="space-y-8 animate-in slide-in-from-bottom-2">
                 
-                {/* NEW: Global Filter for the Overview Dashboard */}
                 <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap gap-4">
                   <h3 className="text-xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-2"><BarChart className="text-blue-500 w-6 h-6"/> Dashboard Filter</h3>
                   <div className="flex items-center gap-3">
@@ -954,7 +965,6 @@
                   </div>
                 </div>
 
-                {/* UPDATED: Dynamic Chart Bar highlighting the specific selected month */}
                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem] shadow-sm">
                   <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><BarChart3 className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Survey Volume (Response Rate %)</h3>
                   <div className="flex items-end justify-between gap-1 sm:gap-4 h-[400px] sm:h-[500px] border-b-4 border-slate-100 dark:border-slate-700 pb-2 relative">
@@ -1324,9 +1334,14 @@
                </div>
             )}
 
-            {/* 5. 2025 HISTORICAL VAULT TAB (ADMIN VIEW) */}
+            {/* 5. 2026 HISTORICAL VAULT TAB (ADMIN VIEW) */}
+            {activeTab === '2026 historical vault' && (
+               <LegacyVaultDashboard year="2026" legacyData={legacy2026} setIframeUrl={setIframeUrl} isAdmin={true} />
+            )}
+
+            {/* 6. 2025 HISTORICAL VAULT TAB (ADMIN VIEW) */}
             {activeTab === '2025 historical vault' && (
-               <LegacyDashboard2025 legacy2025={legacy2025} setIframeUrl={setIframeUrl} isAdmin={true} />
+               <LegacyVaultDashboard year="2025" legacyData={legacy2025} setIframeUrl={setIframeUrl} isAdmin={true} />
             )}
 
           </div>
@@ -1334,7 +1349,7 @@
       );
     }
 
-    function DepartmentDashboard({ responses, deptId, departments, flatDepartments, commentCats, setCommentCats, cqiReports, legacy2025, setIframeUrl }) {
+    function DepartmentDashboard({ responses, deptId, departments, flatDepartments, commentCats, setCommentCats, cqiReports, legacy2025, legacy2026, setIframeUrl }) {
       
       const dept = departments.find(d => d.id === deptId) || flatDepartments.find(d => d.id === deptId);
       const isGrouped = dept?.type === 'checkbox';
@@ -1344,8 +1359,6 @@
       
       const currentMonthKey = getMonthString(new Date());
       const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
-      
-      // NEW: State for overview month filtering in Department view
       const [overviewMonth, setOverviewMonth] = useState(currentMonthKey);
       const [selectedArchiveMonth, setSelectedArchiveMonth] = useState('all');
 
@@ -1418,8 +1431,6 @@
       }, [responses, targetDeptId, departments, targetDept]);
 
       const selectedMonthData = monthlyData.find(m => m.key === selectedMonth) || { comments: [], label: '', pct: 0, count: 0 };
-      
-      // NEW: Selected Overview Filter
       const selectedOverviewData = monthlyData.find(m => m.key === overviewMonth) || { pct: 0, count: 0, label: 'N/A' };
       
       const sortedComments = [...selectedMonthData.comments].sort((a,b) => new Date(b.date) - new Date(a.date));
@@ -1527,7 +1538,7 @@
             </div>
 
             <div className="flex border-b border-slate-200 dark:border-slate-700 px-4 sm:px-10 bg-slate-50/80 dark:bg-slate-900/80 overflow-x-auto custom-scrollbar no-print shrink-0 pb-1">
-              {['overview', 'all feedback', 'CQI status report', 'status reports compilation', '2025 historical vault'].map(tab => (
+              {['overview', 'all feedback', 'CQI status report', 'status reports compilation', '2026 historical vault', '2025 historical vault'].map(tab => (
                 <button key={tab} onClick={()=>setActiveTab(tab)} className={`whitespace-nowrap py-5 px-4 sm:px-6 font-bold text-sm sm:text-base border-b-4 transition-colors capitalize ${activeTab === tab ? 'border-blue-600 dark:border-blue-400 text-blue-800 dark:text-blue-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}>
                   {tab}
                 </button>
@@ -1539,7 +1550,6 @@
               {activeTab === 'overview' && (
                  <div className="animate-in slide-in-from-bottom-2 space-y-12">
                     
-                    {/* NEW: Global Filter for the Department Overview Dashboard */}
                     <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap gap-4">
                       <h3 className="text-xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-2"><BarChart className="text-blue-500 w-6 h-6"/> Department Filter</h3>
                       <div className="flex items-center gap-3">
@@ -1774,9 +1784,14 @@
                  </div>
               )}
 
-              {/* 5. 2025 HISTORICAL VAULT TAB (DEPT VIEW) */}
+              {/* 6. 2026 HISTORICAL VAULT TAB (DEPT VIEW) */}
+              {activeTab === '2026 historical vault' && (
+                 <LegacyVaultDashboard year="2026" legacyData={legacy2026} setIframeUrl={setIframeUrl} isAdmin={false} targetDeptId={targetDeptId} />
+              )}
+
+              {/* 7. 2025 HISTORICAL VAULT TAB (DEPT VIEW) */}
               {activeTab === '2025 historical vault' && (
-                 <LegacyDashboard2025 legacy2025={legacy2025} setIframeUrl={setIframeUrl} isAdmin={false} targetDeptId={targetDeptId} />
+                 <LegacyVaultDashboard year="2025" legacyData={legacy2025} setIframeUrl={setIframeUrl} isAdmin={false} targetDeptId={targetDeptId} />
               )}
 
             </div>
@@ -1785,16 +1800,22 @@
       );
     }
 
-    // --- NEW: DEDICATED 2025 NATIVE REPLICA DASHBOARD ---
-    function LegacyDashboard2025({ legacy2025, setIframeUrl, isAdmin, targetDeptId }) {
+    // --- SMART UNIFIED REPLICA DASHBOARD (Handles both 2025 & 2026 seamlessly) ---
+    function LegacyVaultDashboard({ year, legacyData, setIframeUrl, isAdmin, targetDeptId }) {
        const [vaultTab, setVaultTab] = useState('native_overview');
        const [overviewMonth, setOverviewMonth] = useState('all');
+       
+       // Optimization: Only render 50 comments at a time to prevent UI lag.
+       const [visibleComments, setVisibleComments] = useState(50);
 
-       // Map 2025 links directly based on user role
-       const myLinks = isAdmin ? legacy2025?.links?.[0] : legacy2025?.links?.find(l => l.System_ID === targetDeptId);
+       // Reset rendering limit when user changes tabs or months
+       useEffect(() => { setVisibleComments(50); }, [overviewMonth, vaultTab]);
 
-       const analytics2025 = useMemo(() => {
-          if (!legacy2025?.data) return { months: {}, comments: [], totalCensus: 0, overallSatPct: 0, insightCounts: {} };
+       // Map links directly based on user role
+       const myLinks = isAdmin ? legacyData?.links?.[0] : legacyData?.links?.find(l => l.System_ID === targetDeptId);
+
+       const analytics = useMemo(() => {
+          if (!legacyData?.data) return { months: {}, comments: [], totalCensus: 0, overallSatPct: 0, insightCounts: {q1: { Yes: 0, No: 0 }, q2: { Superior: 0, 'At Par': 0, Inferior: 0 }, q3: { Yes: 0, No: 0 }} };
 
           const monthsData = {};
           const allComments = [];
@@ -1807,19 +1828,18 @@
           let totalPoints = 0;
           let maxPoints = 0;
 
-          // Process row by row
-          legacy2025.data.forEach((row, index) => {
-             // 1. Timestamp Parsing
+          // Process row by row quickly
+          legacyData.data.forEach((row, index) => {
              const rawDate = row["Timestamp"];
              const dateObj = new Date(rawDate);
              if (isNaN(dateObj.getTime())) return;
              const monthKey = getMonthString(dateObj);
-             if (monthKey.indexOf('2025') === -1) return; // Ensure it's 2025 data
+             if (monthKey.indexOf(year) === -1) return; // Ensure it only parses the requested year
 
              if (!monthsData[monthKey]) monthsData[monthKey] = { count: 0, score: 0, max: 0 };
              monthsData[monthKey].count += 1;
 
-             // 2. Score Parsing (4-point scale logic)
+             // Score Parsing (4-point scale logic)
              let rowPoints = 0;
              let rowMax = 0;
              Object.keys(row).forEach(key => {
@@ -1836,18 +1856,18 @@
              totalPoints += rowPoints;
              maxPoints += rowMax;
 
-             // 3. Comments Parsing (Column 56)
+             // Comments Parsing (Column 56)
              const rawComment = row["Do you have comments or suggestions?  "];
              if (rawComment && rawComment.trim().length > 0) {
                  allComments.push({
-                    id: `legacy_2025_${index}`,
+                    id: `legacy_${year}_${index}`,
                     date: rawDate,
                     name: row["Complete Name ( First Name, Middle Initial, Last Name) : "] || "Anonymous",
                     text: rawComment
                  });
              }
 
-             // 4. General Insights Parsing (Specific Columns)
+             // General Insights Parsing
              const v1 = row["Have you visited or have you been admitted to another hospital?"];
              if (v1 === 'Yes') insightCounts.q1.Yes++; else if (v1 === 'No') insightCounts.q1.No++;
 
@@ -1863,35 +1883,38 @@
           return { 
              months: monthsData, 
              comments: allComments.reverse(), 
-             totalCensus: legacy2025.data.length,
+             totalCensus: legacyData.data.length,
              overallSatPct: maxPoints > 0 ? Math.round((totalPoints / maxPoints) * 100) : 0,
              insightCounts 
           };
-       }, [legacy2025]);
+       }, [legacyData, year]);
 
-       // Filter logic for Native Overview
-       let displayCensus = analytics2025.totalCensus;
-       let displaySat = analytics2025.overallSatPct;
-       if (overviewMonth !== 'all' && analytics2025.months[overviewMonth]) {
-          displayCensus = analytics2025.months[overviewMonth].count;
-          const mData = analytics2025.months[overviewMonth];
+       // Dynamic Month Filter Logic
+       let displayCensus = analytics.totalCensus;
+       let displaySat = analytics.overallSatPct;
+       let displayedComments = analytics.comments;
+
+       if (overviewMonth !== 'all' && analytics.months[overviewMonth]) {
+          displayCensus = analytics.months[overviewMonth].count;
+          const mData = analytics.months[overviewMonth];
           displaySat = mData.max > 0 ? Math.round((mData.score / mData.max) * 100) : 0;
+          displayedComments = analytics.comments.filter(c => getMonthString(new Date(c.date)) === overviewMonth);
        } else if (overviewMonth !== 'all') {
           displayCensus = 0; displaySat = 0;
+          displayedComments = [];
        }
 
        return (
           <div className="animate-in slide-in-from-bottom-2 space-y-10 no-print">
              
-             {/* 2025 HEADER BANNER */}
+             {/* DYNAMIC HEADER BANNER */}
              <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-8 sm:p-10 rounded-[2rem] shadow-xl border border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none"><Database className="w-40 h-40" /></div>
                 <div className="relative z-10 w-full">
-                   <h3 className="text-3xl font-black font-serif flex items-center gap-3"><FileText className="w-8 h-8 text-amber-400" /> 2025 Legacy Archive</h3>
+                   <h3 className="text-3xl font-black font-serif flex items-center gap-3"><FileText className="w-8 h-8 text-amber-400" /> {year} Legacy Archive</h3>
                    <p className="text-slate-300 mt-2 font-medium text-lg max-w-2xl">A secure, read-only vault of your finalized Patient Satisfaction data.</p>
                    
-                   {/* SUB-TABS FOR 2025 */}
-                   <div className="flex gap-2 mt-6 bg-slate-800 p-2 rounded-2xl border border-slate-600 inline-flex w-full sm:w-auto">
+                   <div className="flex flex-wrap gap-2 mt-6 bg-slate-800 p-2 rounded-2xl border border-slate-600 inline-flex w-full sm:w-auto">
                       <button onClick={() => setVaultTab('native_overview')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${vaultTab === 'native_overview' ? 'bg-amber-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>Native Dashboard</button>
                       <button onClick={() => setVaultTab('native_feedback')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${vaultTab === 'native_feedback' ? 'bg-amber-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>Raw Feedback List</button>
                       <button onClick={() => setVaultTab('official_docs')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${vaultTab === 'official_docs' ? 'bg-amber-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>Official Documents</button>
@@ -1903,14 +1926,14 @@
              {vaultTab === 'native_overview' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                    <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap gap-4">
-                      <h3 className="text-xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-2"><BarChart className="text-amber-500 w-6 h-6"/> 2025 Filter</h3>
+                      <h3 className="text-xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-2"><BarChart className="text-amber-500 w-6 h-6"/> {year} Filter</h3>
                       <div className="flex items-center gap-3">
                          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Select Month:</label>
-                         <select className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 px-4 text-sm font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500 shadow-inner" value={overviewMonth} onChange={e => setOverviewMonth(e.target.value)}>
-                            <option value="all">Full Year 2025</option>
+                         <select className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 px-4 text-sm font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500 shadow-inner cursor-pointer" value={overviewMonth} onChange={e => setOverviewMonth(e.target.value)}>
+                            <option value="all">Full Year {year}</option>
                             {ALL_MONTHS_LABELS.map((m, i) => {
-                               const mk = `2025-${String(i+1).padStart(2,'0')}`;
-                               return <option key={mk} value={mk}>{m} 2025</option>
+                               const mk = `${year}-${String(i+1).padStart(2,'0')}`;
+                               return <option key={mk} value={mk}>{m} {year}</option>
                             })}
                          </select>
                       </div>
@@ -1918,14 +1941,14 @@
 
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 p-8 rounded-3xl shadow-sm flex flex-col justify-center">
-                         <p className="text-amber-800 dark:text-amber-300 font-bold font-sans uppercase tracking-wide text-sm mb-2">Total Responses ({overviewMonth === 'all' ? '2025' : overviewMonth})</p>
+                         <p className="text-amber-800 dark:text-amber-300 font-bold font-sans uppercase tracking-wide text-sm mb-2">Total Responses ({overviewMonth === 'all' ? year : overviewMonth})</p>
                          <div className="flex items-baseline gap-4 mt-2">
                             <p className="text-4xl sm:text-5xl lg:text-6xl font-black text-amber-900 dark:text-amber-100 font-sans truncate">{displayCensus}</p>
                          </div>
                          <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-4 tracking-wide leading-relaxed">Auto-calculated from raw rows.</p>
                       </div>
                       <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800/50 p-8 rounded-3xl shadow-sm flex flex-col justify-center relative group">
-                         <p className="text-indigo-800 dark:text-indigo-300 font-bold font-sans uppercase tracking-wide text-sm mb-2">Satisfaction Rate ({overviewMonth === 'all' ? '2025' : overviewMonth})</p>
+                         <p className="text-indigo-800 dark:text-indigo-300 font-bold font-sans uppercase tracking-wide text-sm mb-2">Satisfaction Rate ({overviewMonth === 'all' ? year : overviewMonth})</p>
                          <div className="flex items-baseline gap-4 mt-2">
                             <p className="text-4xl sm:text-5xl lg:text-6xl font-black text-indigo-900 dark:text-indigo-100 font-sans truncate">{displaySat}%</p>
                          </div>
@@ -1934,15 +1957,14 @@
                    </div>
 
                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem] shadow-sm">
-                      <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><BarChart3 className="w-8 h-8 text-amber-500" /> 2025 Survey Volume</h3>
+                      <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><BarChart3 className="w-8 h-8 text-amber-500" /> {year} Survey Volume</h3>
                       <div className="flex items-end justify-between gap-1 sm:gap-4 h-[400px] sm:h-[500px] border-b-4 border-slate-100 dark:border-slate-700 pb-2 relative">
                          {ALL_MONTHS_LABELS.map((label, index) => {
-                            const mk = `2025-${String(index+1).padStart(2,'0')}`;
-                            const count = analytics2025.months[mk]?.count || 0;
+                            const mk = `${year}-${String(index+1).padStart(2,'0')}`;
+                            const count = analytics.months[mk]?.count || 0;
                             const isCurrent = mk === overviewMonth;
-                            // For visual height scaling, find the max month
-                            const maxVol = Math.max(...Object.values(analytics2025.months).map(m=>m.count), 1);
-                            const heightPct = (count / maxVol) * 100;
+                            const maxVol = Math.max(...Object.values(analytics.months).map(m=>m.count), 1);
+                            const heightPct = maxVol > 0 ? (count / maxVol) * 100 : 0;
                             
                             return (
                                <div key={mk} className="flex flex-col items-center flex-1 h-full justify-end">
@@ -1957,10 +1979,10 @@
                       </div>
                    </div>
                    
-                   {/* Legacy Insights */}
+                   {/* Legacy Insights (Admin Only) */}
                    {isAdmin && (
                       <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem]">
-                         <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-6 font-serif">2025 General Insights (Full Year)</h3>
+                         <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-6 font-serif">{year} General Insights (Full Year)</h3>
                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             
                             <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
@@ -1972,8 +1994,8 @@
                                    </div>
                                  </div>
                                  <div className="text-right flex-1 ml-4">
-                                   <div className="flex items-center justify-end gap-2 mb-2"><span className="text-lg font-black text-amber-600 dark:text-amber-400">{analytics2025.insightCounts.q1.Yes}</span><span className="text-xs font-bold text-slate-500 uppercase">Yes</span></div>
-                                   <div className="flex items-center justify-end gap-2 mb-3"><span className="text-lg font-black text-slate-500">{analytics2025.insightCounts.q1.No}</span><span className="text-xs font-bold text-slate-500 uppercase">No</span></div>
+                                   <div className="flex items-center justify-end gap-2 mb-2"><span className="text-lg font-black text-amber-600 dark:text-amber-400">{analytics.insightCounts.q1.Yes}</span><span className="text-xs font-bold text-slate-500 uppercase">Yes</span></div>
+                                   <div className="flex items-center justify-end gap-2 mb-3"><span className="text-lg font-black text-slate-500">{analytics.insightCounts.q1.No}</span><span className="text-xs font-bold text-slate-500 uppercase">No</span></div>
                                  </div>
                                </div>
                             </div>
@@ -1987,9 +2009,9 @@
                                    </div>
                                  </div>
                                  <div className="text-right flex-1 ml-4">
-                                   <div className="flex items-center justify-end gap-2 mb-1"><span className="text-base font-black text-blue-600 dark:text-blue-400">{analytics2025.insightCounts.q2.Superior}</span><span className="text-[10px] font-bold text-slate-500 uppercase">Sup</span></div>
-                                   <div className="flex items-center justify-end gap-2 mb-1"><span className="text-base font-black text-slate-500">{analytics2025.insightCounts.q2['At Par']}</span><span className="text-[10px] font-bold text-slate-500 uppercase">Par</span></div>
-                                   <div className="flex items-center justify-end gap-2"><span className="text-base font-black text-red-500">{analytics2025.insightCounts.q2.Inferior}</span><span className="text-[10px] font-bold text-slate-500 uppercase">Inf</span></div>
+                                   <div className="flex items-center justify-end gap-2 mb-1"><span className="text-base font-black text-blue-600 dark:text-blue-400">{analytics.insightCounts.q2.Superior}</span><span className="text-[10px] font-bold text-slate-500 uppercase">Sup</span></div>
+                                   <div className="flex items-center justify-end gap-2 mb-1"><span className="text-base font-black text-slate-500">{analytics.insightCounts.q2['At Par']}</span><span className="text-[10px] font-bold text-slate-500 uppercase">Par</span></div>
+                                   <div className="flex items-center justify-end gap-2"><span className="text-base font-black text-red-500">{analytics.insightCounts.q2.Inferior}</span><span className="text-[10px] font-bold text-slate-500 uppercase">Inf</span></div>
                                  </div>
                                </div>
                             </div>
@@ -2003,8 +2025,8 @@
                                    </div>
                                  </div>
                                  <div className="text-right flex-1 ml-4">
-                                   <div className="flex items-center justify-end gap-2 mb-2"><span className="text-lg font-black text-green-600 dark:text-green-400">{analytics2025.insightCounts.q3.Yes}</span><span className="text-xs font-bold text-slate-500 uppercase">Yes</span></div>
-                                   <div className="flex items-center justify-end gap-2 mb-3"><span className="text-lg font-black text-slate-500">{analytics2025.insightCounts.q3.No}</span><span className="text-xs font-bold text-slate-500 uppercase">No</span></div>
+                                   <div className="flex items-center justify-end gap-2 mb-2"><span className="text-lg font-black text-green-600 dark:text-green-400">{analytics.insightCounts.q3.Yes}</span><span className="text-xs font-bold text-slate-500 uppercase">Yes</span></div>
+                                   <div className="flex items-center justify-end gap-2 mb-3"><span className="text-lg font-black text-slate-500">{analytics.insightCounts.q3.No}</span><span className="text-xs font-bold text-slate-500 uppercase">No</span></div>
                                  </div>
                                </div>
                             </div>
@@ -2018,24 +2040,34 @@
              {/* SUB-TAB 2: RAW FEEDBACK MASTERLIST */}
              {vaultTab === 'native_feedback' && (
                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4">
-                   <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                   <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div>
-                         <h3 className="font-black text-2xl text-slate-800 dark:text-white font-serif uppercase tracking-widest">2025 Raw Comments</h3>
-                         <p className="text-amber-600 dark:text-amber-400 font-bold text-sm tracking-widest uppercase mt-1">Extracted from Column 56</p>
+                         <h3 className="font-black text-2xl text-slate-800 dark:text-white font-serif uppercase tracking-widest">{year} Raw Comments</h3>
+                         <p className="text-amber-600 dark:text-amber-400 font-bold text-sm tracking-widest uppercase mt-1">Extracted from Legacy Column 56</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Filter by Month:</label>
+                         <select className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 px-4 text-sm font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500 shadow-sm cursor-pointer" value={overviewMonth} onChange={e => setOverviewMonth(e.target.value)}>
+                            <option value="all">All Time ({year})</option>
+                            {ALL_MONTHS_LABELS.map((m, i) => {
+                               const mk = `${year}-${String(i+1).padStart(2,'0')}`;
+                               return <option key={mk} value={mk}>{m} {year}</option>
+                            })}
+                         </select>
                       </div>
                    </div>
-                   <div className="overflow-x-auto custom-scrollbar max-h-[600px] overflow-y-auto">
-                      <table className="w-full text-left min-w-[800px]">
-                         <thead className="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider text-xs border-b-2 border-slate-200 dark:border-slate-700 sticky top-0 z-10 shadow-sm">
+                   <div className="overflow-x-auto custom-scrollbar max-h-[600px] overflow-y-auto print:overflow-visible print:max-h-none">
+                      <table className="w-full text-left min-w-[800px] print:min-w-0">
+                         <thead className="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider text-xs border-b-2 border-slate-200 dark:border-slate-700 sticky top-0 z-10 shadow-sm print:bg-transparent print:text-black">
                             <tr>
                                <th className="p-5 w-40 border-r border-slate-100 dark:border-slate-700">Date</th>
                                <th className="p-5 w-48 border-r border-slate-100 dark:border-slate-700">Patient Name</th>
                                <th className="p-5">Comments / Suggestions</th>
                             </tr>
                          </thead>
-                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-800 dark:text-slate-200 font-medium">
-                            {analytics2025.comments.map(c => (
-                               <tr key={c.id} className="hover:bg-amber-50 dark:hover:bg-slate-700/50 transition-colors">
+                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-800 dark:text-slate-200 font-medium print:text-black">
+                            {displayedComments.slice(0, visibleComments).map(c => (
+                               <tr key={c.id} className="hover:bg-amber-50 dark:hover:bg-slate-700/50 transition-colors break-inside-avoid">
                                   <td className="p-5 border-r border-slate-100 dark:border-slate-700 text-sm whitespace-nowrap align-top">
                                      {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
                                   </td>
@@ -2047,23 +2079,30 @@
                                   </td>
                                </tr>
                             ))}
-                            {analytics2025.comments.length === 0 && (
-                               <tr><td colSpan="3" className="p-10 text-center text-slate-400 italic">No comments found in the 2025 data extract.</td></tr>
+                            {displayedComments.length === 0 && (
+                               <tr><td colSpan="3" className="p-10 text-center text-slate-400 italic">No comments found for this selection.</td></tr>
                             )}
                          </tbody>
                       </table>
+                      {visibleComments < displayedComments.length && (
+                         <div className="p-6 text-center bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 no-print">
+                            <button onClick={() => setVisibleComments(prev => prev + 100)} className="bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-white px-8 py-3 rounded-xl font-bold transition-colors shadow-sm">
+                               Load More Comments ({displayedComments.length - visibleComments} remaining)
+                            </button>
+                         </div>
+                      )}
                    </div>
                 </div>
              )}
 
-             {/* SUB-TAB 3: OFFICIAL GOOGLE DOCS LINKS (EMBEDDED) */}
+             {/* SUB-TAB 3: OFFICIAL GOOGLE DOCS LINKS */}
              {vaultTab === 'official_docs' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4">
                    {!myLinks ? (
                        <div className="bg-slate-50 dark:bg-slate-900/50 p-12 rounded-[2rem] border border-slate-200 dark:border-slate-700 text-center">
                           <Database className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
                           <h4 className="text-xl font-black text-slate-600 dark:text-slate-400">No Official Archive Found</h4>
-                          <p className="text-slate-500 mt-2">There are no legacy 2025 Google Docs mapped to this specific view.</p>
+                          <p className="text-slate-500 mt-2">There are no legacy {year} Google Docs mapped to this specific view.</p>
                        </div>
                    ) : (
                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2073,7 +2112,7 @@
                                 <div>
                                    <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-blue-200 dark:border-slate-600"><MessageSquare className="w-7 h-7" /></div>
                                    <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Compiled Masterlist</h4>
-                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Access the unfiltered master document of patient comments from 2025.</p>
+                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Access the unfiltered master document of patient comments from {year}.</p>
                                 </div>
                                 <button onClick={() => setIframeUrl(myLinks['All Comments Link'])} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 shadow-md">
                                    View Document <Maximize2 className="w-4 h-4" />
@@ -2086,7 +2125,7 @@
                                 <div>
                                    <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-blue-200 dark:border-slate-600"><MessageSquare className="w-7 h-7" /></div>
                                    <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Dept Patient Comments</h4>
-                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">View the raw, unfiltered patient feedback specifically submitted for your department during 2025.</p>
+                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">View the raw, unfiltered patient feedback specifically submitted for your department during {year}.</p>
                                 </div>
                                 <button onClick={() => setIframeUrl(myLinks['Links for the Comments Compilation'])} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 shadow-md">
                                    View Document <Maximize2 className="w-4 h-4" />
@@ -2099,7 +2138,7 @@
                                 <div>
                                    <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-amber-200 dark:border-slate-600"><ClipboardCheck className="w-7 h-7" /></div>
                                    <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Dept CQI Reports</h4>
-                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Review your official, submitted Action and Evaluation reports logged for the 2025 year.</p>
+                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Review your official, submitted Action and Evaluation reports logged for the {year} year.</p>
                                 </div>
                                 <button onClick={() => setIframeUrl(myLinks['Links for the Status Reports Compilation'])} className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 shadow-md">
                                    View Document <Maximize2 className="w-4 h-4" />
@@ -2112,7 +2151,7 @@
                                 <div>
                                    <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-indigo-200 dark:border-slate-600"><BarChart3 className="w-7 h-7" /></div>
                                    <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Monthly Census Report</h4>
-                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Review the official monthly breakdown, tallies, and analytics charts generated for 2025.</p>
+                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Review the official monthly breakdown, tallies, and analytics charts generated for {year}.</p>
                                 </div>
                                 <button onClick={() => setIframeUrl(myLinks['Monthly Census Link'])} className="w-full bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white dark:bg-slate-700 dark:text-white dark:hover:bg-indigo-600 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 border border-indigo-200 dark:border-slate-600">
                                    View Document <Maximize2 className="w-4 h-4" />
@@ -2125,7 +2164,7 @@
                                 <div>
                                    <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-purple-200 dark:border-slate-600"><CalendarDays className="w-7 h-7" /></div>
                                    <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Yearly Census Report</h4>
-                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Access the finalized, comprehensive year-end statistical report document for 2025.</p>
+                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Access the finalized, comprehensive year-end statistical report document for {year}.</p>
                                 </div>
                                 <button onClick={() => setIframeUrl(myLinks['Yearly Census Link'])} className="w-full bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white dark:bg-slate-700 dark:text-white dark:hover:bg-purple-600 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 border border-purple-200 dark:border-slate-600">
                                    View Document <Maximize2 className="w-4 h-4" />
@@ -2146,7 +2185,7 @@
       
       return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 no-print-bg">
-          <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden print-modal-content print:h-auto print:max-h-none print:shadow-none print:rounded-none border border-slate-200 dark:border-slate-700 transition-colors">
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden print-modal-content border border-slate-200 dark:border-slate-700 transition-colors">
             
             <div className="bg-slate-900 dark:bg-slate-950 p-6 flex justify-between items-center text-white shrink-0">
               <div>
@@ -2159,7 +2198,7 @@
               </div>
             </div>
 
-            <div className="p-8 overflow-y-auto custom-scrollbar print:overflow-visible font-sans bg-slate-50 dark:bg-slate-900 transition-colors">
+            <div className="p-8 overflow-y-auto custom-scrollbar font-sans bg-slate-50 dark:bg-slate-900 transition-colors print:overflow-visible">
               {type === 'general_question' && (
                  viewMonth ? (
                    <div className="space-y-6">
@@ -2170,13 +2209,12 @@
                       {data.monthly[viewMonth].responses.length === 0 ? <p className="text-slate-500 dark:text-slate-400 italic">No detailed responses found.</p> : (
                         <div className="grid grid-cols-1 gap-4">
                           {data.monthly[viewMonth].responses.map((resp, i) => (
-                            <div key={i} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                              {/* ENHANCED: Added Patient Name and Room details to insight popups */}
+                            <div key={i} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm break-inside-avoid print:mb-4">
                               <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-3 uppercase flex flex-wrap gap-x-3 gap-y-1 items-center">
                                   <span>{isNaN(new Date(resp.date).getTime()) ? resp.date : new Date(resp.date).toLocaleString('en-US', {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'})}</span>
-                                  <span className="text-blue-500">|</span>
+                                  <span className="text-blue-500 hidden sm:inline">|</span>
                                   <span className="text-slate-600 dark:text-slate-300"><Users className="w-3 h-3 inline mr-1"/> {resp.name || 'Anonymous'}</span>
-                                  <span className="text-blue-500">|</span>
+                                  <span className="text-blue-500 hidden sm:inline">|</span>
                                   <span className="text-slate-600 dark:text-slate-300">Room {resp.room || 'N/A'}</span>
                               </div>
                               {resp.isText ? (
@@ -2196,7 +2234,7 @@
                         {Object.keys(data.monthly).sort().reverse().map(monthStr => {
                           const mData = data.monthly[monthStr];
                           return (
-                            <div key={monthStr} onClick={() => setDrillDown({...drillDown, viewMonth: monthStr})} className="bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 p-6 rounded-2xl cursor-pointer transition-colors shadow-sm group">
+                            <div key={monthStr} onClick={() => setDrillDown({...drillDown, viewMonth: monthStr})} className="bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 p-6 rounded-2xl cursor-pointer transition-colors shadow-sm group break-inside-avoid print:mb-4">
                               <div className="flex justify-between items-center">
                                 <span className="font-bold text-xl text-slate-700 dark:text-slate-200">{monthStr}</span>
                                 <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900/60 no-print transition-colors">View Responses <ChevronRight className="w-4 h-4 inline" /></span>
@@ -2218,6 +2256,320 @@
             </div>
           </div>
         </div>
+      )
+    }
+
+    function MasterFeedbackManager({ comments, commentCats, setCommentCats, selectedMonth, onMonthChange, monthsList, flatDepartments, cqiReports, isDeptView = false }) {
+       const [subTab, setSubTab] = useState('all');
+
+       const handleSetCat = (id, category) => {
+          setCommentCats(prev => {
+             const updated = { ...prev };
+             if (category === 'uncategorized') delete updated[id];
+             else updated[id] = category;
+             
+             fetch(APPS_SCRIPT_URL, {
+                method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: "update_comment_cats", categories: updated })
+             }).catch(e => console.log(e));
+
+             return updated;
+          });
+       };
+
+       const filteredComments = comments.filter(c => {
+          if (selectedMonth !== 'all') {
+             const cMonth = getMonthString(new Date(c.date));
+             return cMonth === selectedMonth;
+          }
+          return true;
+       });
+
+       const inboxList = filteredComments.filter(c => !commentCats[c.id]);
+       const posList = filteredComments.filter(c => commentCats[c.id] === 'positive');
+       const mixList = filteredComments.filter(c => commentCats[c.id] === 'mixed');
+       const negList = filteredComments.filter(c => commentCats[c.id] === 'negative');
+
+       let currentList = filteredComments;
+       if (subTab === 'inbox') currentList = inboxList;
+       else if (subTab === 'positive') currentList = posList;
+       else if (subTab === 'mixed') currentList = mixList;
+       else if (subTab === 'negative') currentList = negList;
+
+       return (
+         <div className="space-y-6 sm:space-y-8 animate-in slide-in-from-bottom-2 font-sans">
+            
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-3 sm:p-4 shadow-sm border border-slate-200 dark:border-slate-700 transition-colors no-print">
+               <div className="flex flex-wrap gap-2 sm:gap-4">
+                  {['all', 'inbox', 'positive', 'mixed', 'negative'].map(tab => {
+                     let count = 0;
+                     if (tab === 'all') count = filteredComments.length;
+                     if (tab === 'inbox') count = inboxList.length;
+                     if (tab === 'positive') count = posList.length;
+                     if (tab === 'mixed') count = mixList.length;
+                     if (tab === 'negative') count = negList.length;
+                     
+                     return (
+                        <button key={tab} onClick={() => setSubTab(tab)} className={`flex-1 min-w-[110px] py-3 px-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 ${subTab === tab ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-blue-300 dark:hover:border-blue-600'}`}>
+                           {tab === 'all' ? <FileText className="w-4 h-4 hidden sm:block"/> : tab === 'inbox' ? <Inbox className="w-4 h-4 hidden sm:block"/> : tab === 'positive' ? <ThumbsUp className="w-4 h-4 hidden sm:block"/> : tab === 'mixed' ? <Scale className="w-4 h-4 hidden sm:block"/> : <AlertTriangle className="w-4 h-4 hidden sm:block"/>}
+                           {tab} <span className={`px-2 py-0.5 rounded-full text-[10px] ${subTab === tab ? 'bg-blue-500/50 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>{count}</span>
+                        </button>
+                     )
+                  })}
+               </div>
+            </div>
+
+            <div className="bg-slate-100/50 dark:bg-slate-900/50 p-4 sm:p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 min-h-[400px]">
+               
+               <div className="flex flex-col sm:flex-row gap-4 mb-6 no-print">
+                  <div className="flex-1">
+                     <label className="block text-slate-600 dark:text-slate-400 font-black text-xs mb-2 uppercase tracking-widest">Filter by Month</label>
+                     <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm cursor-pointer" value={selectedMonth} onChange={e => onMonthChange(e.target.value)}>
+                        <option value="all">All Time</option>
+                        {monthsList.map((mk) => <option key={mk} value={mk}>{ALL_MONTHS_LABELS[parseInt(mk.split('-')[1])-1]} {mk.split('-')[0]}</option>)}
+                     </select>
+                  </div>
+               </div>
+
+               {subTab === 'all' && !isDeptView ? (
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col print:border-0 print:shadow-none print:rounded-none">
+                     <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                           <h3 className="font-black text-2xl text-slate-800 dark:text-white font-serif uppercase tracking-widest">ALL COMMENTS</h3>
+                           <p className="text-blue-600 dark:text-blue-400 font-bold text-sm tracking-widest uppercase mt-1">SURVEY RESULTS • {selectedMonth === 'all' ? 'All Time' : selectedMonth}</p>
+                        </div>
+                        <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors shadow-sm no-print"><Printer className="w-4 h-4" /> Print List</button>
+                     </div>
+                     <div className="overflow-x-auto custom-scrollbar print:overflow-visible">
+                        <table className="w-full text-left min-w-[800px] print:min-w-0">
+                           <thead className="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider text-xs border-b-2 border-slate-200 dark:border-slate-700 print:bg-transparent print:text-black">
+                              <tr>
+                                 <th className="p-5 w-32 border-r border-slate-100 dark:border-slate-700">Date</th>
+                                 <th className="p-5 w-64 border-r border-slate-100 dark:border-slate-700">Department</th>
+                                 <th className="p-5">Comments / Suggestions</th>
+                                 <th className="p-5 w-40 text-center border-l border-slate-100 dark:border-slate-700">Status</th>
+                              </tr>
+                           </thead>
+                           <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-800 dark:text-slate-200 font-medium print:text-black">
+                              {currentList.map(c => {
+                                 let displayStatus = "";
+                                 let statusColor = "";
+                                 const cat = commentCats[c.id];
+
+                                 if (cat === 'positive' || cat === 'mixed') {
+                                    displayStatus = "NOTED";
+                                    statusColor = "text-slate-500 dark:text-slate-400";
+                                 } else if (cat === 'negative') {
+                                    const reportedStatus = cqiReports.find(r => r.Case_No && r.Department === c.deptName && r.Report_Month === selectedMonth && r.Complaint === c.text)?.Status;
+                                    
+                                    if (reportedStatus === 'Closed') {
+                                       displayStatus = "CLOSED";
+                                       statusColor = "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-lg";
+                                    } else if (reportedStatus === 'For Monitoring' || reportedStatus === 'For Continuous Monitoring') {
+                                       displayStatus = "MONITORING";
+                                       statusColor = "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-lg";
+                                    } else {
+                                       displayStatus = "PENDING";
+                                       statusColor = "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-3 py-1 rounded-lg font-black";
+                                    }
+                                 }
+
+                                 return (
+                                    <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors break-inside-avoid">
+                                       <td className="p-5 border-r border-slate-100 dark:border-slate-700 text-sm whitespace-nowrap align-top">
+                                          {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
+                                       </td>
+                                       <td className="p-5 border-r border-slate-100 dark:border-slate-700 font-bold uppercase text-xs tracking-wider text-slate-500 dark:text-slate-400 align-top">
+                                          {c.deptName}
+                                       </td>
+                                       <td className="p-5 italic leading-relaxed text-slate-700 dark:text-slate-300 min-w-[300px] align-top">
+                                          "{c.text}"
+                                       </td>
+                                       <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700 align-top">
+                                          {displayStatus && <span className={`text-xs font-black uppercase tracking-widest ${statusColor}`}>{displayStatus}</span>}
+                                       </td>
+                                    </tr>
+                                 )
+                              })}
+                           </tbody>
+                        </table>
+                     </div>
+                  </div>
+               ) : currentList.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-600 min-h-[300px]">
+                     <MessageSquare className="w-12 h-12 mb-4 opacity-30"/>
+                     <p className="font-bold text-lg">No comments found in this category.</p>
+                  </div>
+               ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                     {currentList.map(c => (
+                        <div key={c.id} className="bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between break-inside-avoid print:mb-4">
+                           <div>
+                              <div className="bg-blue-50 dark:bg-slate-700 text-blue-800 dark:text-slate-300 px-3 py-1 rounded-lg font-black text-xs mb-4 inline-block uppercase tracking-wider border border-blue-100 dark:border-slate-600 shadow-sm">{c.deptName}</div>
+                              <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed mb-4">"{c.text}"</p>
+                              <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-3 text-sm mb-6 border-t border-slate-100 dark:border-slate-700 pt-4">
+                                 <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
+                                    {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
+                                 </span>
+                                 <span className="font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600">Room: {c.room}</span>
+                                 {c.score > 0 && <span className="font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600">Score: {c.score.toFixed(1)}</span>}
+                              </div>
+                           </div>
+                           
+                           {!isDeptView && (
+                              <div className="bg-slate-50 dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 no-print">
+                                 <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-widest text-center">Categorize As:</p>
+                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                                    <button onClick={() => handleSetCat(c.id, 'positive')} className={`flex-1 min-w-[80px] py-2 rounded-lg font-bold text-sm transition-colors shadow-sm ${commentCats[c.id] === 'positive' ? 'bg-green-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-green-50 dark:hover:bg-green-900/30'}`}>👍 Pos</button>
+                                    <button onClick={() => handleSetCat(c.id, 'mixed')} className={`flex-1 min-w-[80px] py-2 rounded-lg font-bold text-sm transition-colors shadow-sm ${commentCats[c.id] === 'mixed' ? 'bg-amber-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-amber-50 dark:hover:bg-amber-900/30'}`}>⚖️ Mix</button>
+                                    <button onClick={() => handleSetCat(c.id, 'negative')} className={`flex-1 min-w-[80px] py-2 rounded-lg font-bold text-sm transition-colors shadow-sm ${commentCats[c.id] === 'negative' ? 'bg-red-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-red-50 dark:hover:bg-red-900/30'}`}>👎 Neg</button>
+                                 </div>
+                                 {commentCats[c.id] && (
+                                   <button onClick={() => handleSetCat(c.id, 'uncategorized')} className="w-full mt-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-colors bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm">Clear Category</button>
+                                 )}
+                              </div>
+                           )}
+                        </div>
+                     ))}
+                  </div>
+               )}
+            </div>
+         </div>
+       )
+    }
+
+    function HomeBanner({ onStartClick }) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in zoom-in duration-500 mb-10">
+          <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md p-8 sm:p-14 rounded-[2rem] shadow-2xl border border-white/50 dark:border-slate-700/50 max-w-xl w-full text-center relative overflow-hidden transition-colors">
+            <div className="relative z-10">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-800 dark:from-blue-500 dark:to-indigo-700 text-white rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-blue-500/20 dark:shadow-blue-900/40 rotate-3 transform hover:rotate-0 transition-transform"><ClipboardList className="w-12 h-12 -rotate-3" /></div>
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-snug">Patient Satisfaction Survey</h2>
+              <p className="text-slate-600 dark:text-slate-300 mb-10 font-medium text-lg leading-relaxed">We value your health and your opinion. Please take a moment to rate your experience so we can serve you better.</p>
+              <button onClick={onStartClick} className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 dark:from-blue-500 dark:to-indigo-600 dark:hover:from-blue-600 dark:hover:to-indigo-700 text-white font-bold py-5 px-6 rounded-2xl shadow-xl shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-3 text-xl tracking-wide group border border-blue-500 dark:border-blue-400">
+                Start Survey <ChevronRight className="w-7 h-7 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function SuccessModal({ onClose }) {
+      return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-slate-800 p-8 sm:p-12 rounded-[2rem] shadow-2xl max-w-lg w-full text-center border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-500 transition-colors">
+            <div className="w-24 h-24 bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+              <Check className="w-12 h-12" />
+            </div>
+            <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-4 font-serif">Thank You!</h3>
+            <p className="text-slate-600 dark:text-slate-300 text-lg mb-8 leading-relaxed">
+              Your feedback is invaluable to us. We have securely received your responses and will use them to continuously elevate the quality of care and service at Taytay Doctors Multispecialty Hospital.
+            </p>
+            <button onClick={onClose} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md active:scale-95 text-lg border border-blue-500">
+              Return to Home
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    function LoginSelectView({ loginMode, setView, setActiveDeptId, departments, flatDepartments, setAuthUser, setLoginToast }) {
+      const loginableDepartments = flatDepartments.filter(d => {
+         if (d.id === 'general') return true;
+         if (d.parentId === 'general') return false;
+         if (d.type === 'checkbox') return false;
+         return true;
+      });
+
+      const [selectedDept, setSelectedDept] = useState(loginableDepartments.length > 0 ? loginableDepartments[0].id : '');
+      const [password, setPassword] = useState('');
+      const [showPassword, setShowPassword] = useState(false);
+      const [error, setError] = useState('');
+      const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        setIsAuthenticating(true);
+        setError('');
+        
+        const id = loginMode === 'admin' ? 'admin' : selectedDept;
+        const name = loginMode === 'admin' ? 'Master Admin' : loginableDepartments.find(d => d.id === selectedDept)?.title;
+        
+        try {
+          const url = `${APPS_SCRIPT_URL}?action=login&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&password=${encodeURIComponent(password)}`;
+          
+          const res = await fetch(url);
+          const data = await res.json();
+          
+          if (data.success) {
+              setError('');
+              const userObj = { role: loginMode, id: id, name: name };
+              setAuthUser(userObj);
+              localStorage.setItem('tdmh_auth', JSON.stringify(userObj));
+              
+              setLoginToast(`Successfully logged in as ${name}`);
+              setTimeout(() => setLoginToast(null), 4000);
+
+              if (loginMode === 'admin') setView('admin'); else { setActiveDeptId(selectedDept); setView('dept'); }
+          } else {
+              setError(data.message || 'Incorrect Password');
+          }
+        } catch (err) {
+          console.error("Login fetch error:", err);
+          setError('Network error connecting to database.');
+        }
+        
+        setIsAuthenticating(false);
+      };
+
+      return (
+         <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl max-w-md w-full border border-slate-100 dark:border-slate-700 relative transition-colors">
+               <button onClick={() => { setView('home'); setPassword(''); setError('');}} className="absolute top-6 left-6 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><ArrowLeft className="w-6 h-6"/></button>
+               <div className="flex justify-center mb-4">
+                  {loginMode === 'admin' ? <ShieldAlert className="w-12 h-12 text-red-600 dark:text-red-400" /> : <Users className="w-12 h-12 text-blue-600 dark:text-blue-400" />}
+               </div>
+               <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2 text-center tracking-tight">
+                  {loginMode === 'admin' ? 'Master Admin Login' : 'Department Login'}
+               </h2>
+               <p className="text-center text-slate-500 dark:text-slate-400 mb-8 font-medium">Enter your secure credentials to access the portal.</p>
+               
+               <form onSubmit={handleLogin} className="space-y-5">
+                  {loginMode === 'dept' && (
+                     <div>
+                        <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Select Department</label>
+                        <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-white font-medium outline-none focus:border-blue-500 transition-colors shadow-sm" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
+                           {loginableDepartments.map(d => <option key={d.id} value={d.id}>{d.type === 'sub' ? `— ${d.title}` : d.title}</option>)}
+                        </select>
+                     </div>
+                  )}
+                  <div>
+                     <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Password</label>
+                     <div className="relative">
+                       <input 
+                          type={showPassword ? 'text' : 'password'} 
+                          value={password} 
+                          onChange={e => setPassword(e.target.value)} 
+                          disabled={isAuthenticating} 
+                          className="w-full p-4 pr-12 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl outline-none focus:border-blue-500 font-sans text-lg disabled:opacity-50 transition-colors shadow-sm" 
+                          placeholder="Enter Password" 
+                          autoFocus 
+                       />
+                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 outline-none">
+                          {showPassword ? <EyeOff className="w-6 h-6"/> : <Eye className="w-6 h-6"/>}
+                       </button>
+                     </div>
+                  </div>
+                  
+                  {error && <p className="text-red-500 dark:text-red-400 text-sm mt-2 font-bold flex items-center gap-1 bg-red-50 dark:bg-red-900/30 p-3 rounded-lg"><AlertTriangle className="w-4 h-4"/>{error}</p>}
+                  
+                  <button type="submit" disabled={isAuthenticating} className={`w-full text-white font-black py-4 rounded-xl text-lg transition-colors active:scale-95 flex justify-center items-center gap-2 disabled:opacity-70 shadow-md mt-4 border ${loginMode === 'admin' ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-blue-600 hover:bg-blue-700 border-blue-500'}`}>
+                     {isAuthenticating ? <><RefreshCw className="w-5 h-5 animate-spin" /> Verifying...</> : 'Unlock Portal'}
+                  </button>
+               </form>
+            </div>
+         </div>
       )
     }
 
@@ -2559,326 +2911,6 @@
           </form>
         </div>
       );
-    }
-
-    function MasterFeedbackManager({ comments, commentCats, setCommentCats, selectedMonth, onMonthChange, monthsList, flatDepartments, cqiReports, isDeptView = false }) {
-       const [subTab, setSubTab] = useState('all');
-
-       const handleSetCat = (id, category) => {
-          setCommentCats(prev => {
-             const updated = { ...prev };
-             if (category === 'uncategorized') delete updated[id];
-             else updated[id] = category;
-             
-             fetch(APPS_SCRIPT_URL, {
-                method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ action: "update_comment_cats", categories: updated })
-             }).catch(e => console.log(e));
-
-             return updated;
-          });
-       };
-
-       const filteredComments = comments.filter(c => {
-          if (selectedMonth !== 'all') {
-             const cMonth = getMonthString(new Date(c.date));
-             return cMonth === selectedMonth;
-          }
-          return true;
-       });
-
-       const inboxList = filteredComments.filter(c => !commentCats[c.id]);
-       const posList = filteredComments.filter(c => commentCats[c.id] === 'positive');
-       const mixList = filteredComments.filter(c => commentCats[c.id] === 'mixed');
-       const negList = filteredComments.filter(c => commentCats[c.id] === 'negative');
-
-       let currentList = filteredComments;
-       if (subTab === 'inbox') currentList = inboxList;
-       else if (subTab === 'positive') currentList = posList;
-       else if (subTab === 'mixed') currentList = mixList;
-       else if (subTab === 'negative') currentList = negList;
-
-       return (
-         <div className="space-y-6 sm:space-y-8 animate-in slide-in-from-bottom-2 font-sans">
-            
-            <div className="bg-white dark:bg-slate-800 rounded-3xl p-3 sm:p-4 shadow-sm border border-slate-200 dark:border-slate-700 transition-colors no-print">
-               <div className="flex flex-wrap gap-2 sm:gap-4">
-                  {['all', 'inbox', 'positive', 'mixed', 'negative'].map(tab => {
-                     let count = 0;
-                     if (tab === 'all') count = filteredComments.length;
-                     if (tab === 'inbox') count = inboxList.length;
-                     if (tab === 'positive') count = posList.length;
-                     if (tab === 'mixed') count = mixList.length;
-                     if (tab === 'negative') count = negList.length;
-                     
-                     return (
-                        <button key={tab} onClick={() => setSubTab(tab)} className={`flex-1 min-w-[110px] py-3 px-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 border-2 ${subTab === tab ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-blue-300 dark:hover:border-blue-600'}`}>
-                           {tab === 'all' ? <FileText className="w-4 h-4 hidden sm:block"/> : tab === 'inbox' ? <Inbox className="w-4 h-4 hidden sm:block"/> : tab === 'positive' ? <ThumbsUp className="w-4 h-4 hidden sm:block"/> : tab === 'mixed' ? <Scale className="w-4 h-4 hidden sm:block"/> : <AlertTriangle className="w-4 h-4 hidden sm:block"/>}
-                           {tab} <span className={`px-2 py-0.5 rounded-full text-[10px] ${subTab === tab ? 'bg-blue-500/50 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>{count}</span>
-                        </button>
-                     )
-                  })}
-               </div>
-            </div>
-
-            <div className="bg-slate-100/50 dark:bg-slate-900/50 p-4 sm:p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 min-h-[400px]">
-               
-               <div className="flex flex-col sm:flex-row gap-4 mb-6 no-print">
-                  <div className="flex-1">
-                     <label className="block text-slate-600 dark:text-slate-400 font-black text-xs mb-2 uppercase tracking-widest">Filter by Month</label>
-                     <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm" value={selectedMonth} onChange={e => onMonthChange(e.target.value)}>
-                        <option value="all">All Time</option>
-                        {monthsList.map((mk) => <option key={mk} value={mk}>{ALL_MONTHS_LABELS[parseInt(mk.split('-')[1])-1]} {mk.split('-')[0]}</option>)}
-                     </select>
-                  </div>
-               </div>
-
-               {subTab === 'all' && !isDeptView ? (
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col print:border-0 print:shadow-none print:rounded-none">
-                     <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                           <h3 className="font-black text-2xl text-slate-800 dark:text-white font-serif uppercase tracking-widest">ALL COMMENTS</h3>
-                           <p className="text-blue-600 dark:text-blue-400 font-bold text-sm tracking-widest uppercase mt-1">SURVEY RESULTS • {selectedMonth === 'all' ? 'All Time' : selectedMonth}</p>
-                        </div>
-                        <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors shadow-sm no-print"><Printer className="w-4 h-4" /> Print List</button>
-                     </div>
-                     <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-left min-w-[800px]">
-                           <thead className="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider text-xs border-b-2 border-slate-200 dark:border-slate-700">
-                              <tr>
-                                 <th className="p-5 w-32 border-r border-slate-100 dark:border-slate-700">Date</th>
-                                 <th className="p-5 w-64 border-r border-slate-100 dark:border-slate-700">Department</th>
-                                 <th className="p-5">Comments / Suggestions</th>
-                                 <th className="p-5 w-40 text-center border-l border-slate-100 dark:border-slate-700">Status</th>
-                              </tr>
-                           </thead>
-                           <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-800 dark:text-slate-200 font-medium">
-                              {currentList.map(c => {
-                                 let displayStatus = "";
-                                 let statusColor = "";
-                                 const cat = commentCats[c.id];
-
-                                 if (cat === 'positive' || cat === 'mixed') {
-                                    displayStatus = "NOTED";
-                                    statusColor = "text-slate-500 dark:text-slate-400";
-                                 } else if (cat === 'negative') {
-                                    const reportedStatus = cqiReports.find(r => r.Case_No && r.Department === c.deptName && r.Report_Month === selectedMonth && r.Complaint === c.text)?.Status;
-                                    
-                                    if (reportedStatus === 'Closed') {
-                                       displayStatus = "CLOSED";
-                                       statusColor = "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-lg";
-                                    } else if (reportedStatus === 'For Monitoring' || reportedStatus === 'For Continuous Monitoring') {
-                                       displayStatus = "MONITORING";
-                                       statusColor = "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-lg";
-                                    } else {
-                                       displayStatus = "PENDING";
-                                       statusColor = "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-3 py-1 rounded-lg font-black";
-                                    }
-                                 }
-
-                                 return (
-                                    <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors break-inside-avoid">
-                                       <td className="p-5 border-r border-slate-100 dark:border-slate-700 text-sm whitespace-nowrap align-top">
-                                          {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
-                                       </td>
-                                       <td className="p-5 border-r border-slate-100 dark:border-slate-700 font-bold uppercase text-xs tracking-wider text-slate-500 dark:text-slate-400 align-top">
-                                          {c.deptName}
-                                       </td>
-                                       <td className="p-5 italic leading-relaxed text-slate-700 dark:text-slate-300 min-w-[300px] align-top">
-                                          "{c.text}"
-                                       </td>
-                                       <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700 align-top">
-                                          {displayStatus && <span className={`text-xs font-black uppercase tracking-widest ${statusColor}`}>{displayStatus}</span>}
-                                       </td>
-                                    </tr>
-                                 )
-                              })}
-                           </tbody>
-                        </table>
-                     </div>
-                  </div>
-               ) : currentList.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-600 min-h-[300px]">
-                     <MessageSquare className="w-12 h-12 mb-4 opacity-30"/>
-                     <p className="font-bold text-lg">No comments found in this category.</p>
-                  </div>
-               ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                     {currentList.map(c => (
-                        <div key={c.id} className="bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between break-inside-avoid print:mb-4">
-                           <div>
-                              <div className="bg-blue-50 dark:bg-slate-700 text-blue-800 dark:text-slate-300 px-3 py-1 rounded-lg font-black text-xs mb-4 inline-block uppercase tracking-wider border border-blue-100 dark:border-slate-600 shadow-sm">{c.deptName}</div>
-                              <p className="text-slate-800 dark:text-white font-medium text-lg leading-relaxed mb-4">"{c.text}"</p>
-                              <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-3 text-sm mb-6 border-t border-slate-100 dark:border-slate-700 pt-4">
-                                 <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-                                    {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
-                                 </span>
-                                 <span className="font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600">Room: {c.room}</span>
-                                 {c.score > 0 && <span className="font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600">Score: {c.score.toFixed(1)}</span>}
-                              </div>
-                           </div>
-                           
-                           {!isDeptView && (
-                              <div className="bg-slate-50 dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 no-print">
-                                 <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-3 uppercase tracking-widest text-center">Categorize As:</p>
-                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-                                    <button onClick={() => handleSetCat(c.id, 'positive')} className={`flex-1 min-w-[80px] py-2 rounded-lg font-bold text-sm transition-colors shadow-sm ${commentCats[c.id] === 'positive' ? 'bg-green-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-green-50 dark:hover:bg-green-900/30'}`}>👍 Pos</button>
-                                    <button onClick={() => handleSetCat(c.id, 'mixed')} className={`flex-1 min-w-[80px] py-2 rounded-lg font-bold text-sm transition-colors shadow-sm ${commentCats[c.id] === 'mixed' ? 'bg-amber-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-amber-50 dark:hover:bg-amber-900/30'}`}>⚖️ Mix</button>
-                                    <button onClick={() => handleSetCat(c.id, 'negative')} className={`flex-1 min-w-[80px] py-2 rounded-lg font-bold text-sm transition-colors shadow-sm ${commentCats[c.id] === 'negative' ? 'bg-red-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-red-50 dark:hover:bg-red-900/30'}`}>👎 Neg</button>
-                                 </div>
-                                 {commentCats[c.id] && (
-                                   <button onClick={() => handleSetCat(c.id, 'uncategorized')} className="w-full mt-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-colors bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm">Clear Category</button>
-                                 )}
-                              </div>
-                           )}
-                        </div>
-                     ))}
-                  </div>
-               )}
-            </div>
-         </div>
-       )
-    }
-
-    function HomeBanner({ onStartClick }) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in zoom-in duration-500 mb-10">
-          <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md p-8 sm:p-14 rounded-[2rem] shadow-2xl border border-white/50 dark:border-slate-700/50 max-w-xl w-full text-center relative overflow-hidden transition-colors">
-            <div className="relative z-10">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-800 dark:from-blue-500 dark:to-indigo-700 text-white rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-blue-500/20 dark:shadow-blue-900/40 rotate-3 transform hover:rotate-0 transition-transform"><ClipboardList className="w-12 h-12 -rotate-3" /></div>
-              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-snug">Patient Satisfaction Survey</h2>
-              <p className="text-slate-600 dark:text-slate-300 mb-10 font-medium text-lg leading-relaxed">We value your health and your opinion. Please take a moment to rate your experience so we can serve you better.</p>
-              <button onClick={onStartClick} className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 dark:from-blue-500 dark:to-indigo-600 dark:hover:from-blue-600 dark:hover:to-indigo-700 text-white font-bold py-5 px-6 rounded-2xl shadow-xl shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-3 text-xl tracking-wide group border border-blue-500 dark:border-blue-400">
-                Start Survey <ChevronRight className="w-7 h-7 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    function SuccessModal({ onClose }) {
-      return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-800 p-8 sm:p-12 rounded-[2rem] shadow-2xl max-w-lg w-full text-center border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-500 transition-colors">
-            <div className="w-24 h-24 bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-              <Check className="w-12 h-12" />
-            </div>
-            <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-4 font-serif">Thank You!</h3>
-            <p className="text-slate-600 dark:text-slate-300 text-lg mb-8 leading-relaxed">
-              Your feedback is invaluable to us. We have securely received your responses and will use them to continuously elevate the quality of care and service at Taytay Doctors Multispecialty Hospital.
-            </p>
-            <button onClick={onClose} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md active:scale-95 text-lg border border-blue-500">
-              Return to Home
-            </button>
-          </div>
-        </div>
-      )
-    }
-
-    function LoginSelectView({ loginMode, setView, setActiveDeptId, departments, flatDepartments, setAuthUser, setLoginToast }) {
-      
-      const loginableDepartments = flatDepartments.filter(d => {
-         // Allow 'general' parent login (Unified General Services)
-         if (d.id === 'general') return true;
-         // Hide sub-departments of General Services from the dropdown
-         if (d.parentId === 'general') return false;
-         
-         // Hide other parents (Ancillary, Special) since they still want separate logins
-         if (d.type === 'checkbox') return false;
-         
-         return true;
-      });
-
-      const [selectedDept, setSelectedDept] = useState(loginableDepartments.length > 0 ? loginableDepartments[0].id : '');
-      const [password, setPassword] = useState('');
-      const [showPassword, setShowPassword] = useState(false);
-      const [error, setError] = useState('');
-      const [isAuthenticating, setIsAuthenticating] = useState(false);
-
-      const handleLogin = async (e) => {
-        e.preventDefault();
-        setIsAuthenticating(true);
-        setError('');
-        
-        const id = loginMode === 'admin' ? 'admin' : selectedDept;
-        const name = loginMode === 'admin' ? 'Master Admin' : loginableDepartments.find(d => d.id === selectedDept)?.title;
-        
-        try {
-          const url = `${APPS_SCRIPT_URL}?action=login&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&password=${encodeURIComponent(password)}`;
-          
-          const res = await fetch(url);
-          const data = await res.json();
-          
-          if (data.success) {
-              setError('');
-              const userObj = { role: loginMode, id: id, name: name };
-              setAuthUser(userObj);
-              localStorage.setItem('tdmh_auth', JSON.stringify(userObj));
-              
-              setLoginToast(`Successfully logged in as ${name}`);
-              setTimeout(() => setLoginToast(null), 4000);
-
-              if (loginMode === 'admin') setView('admin'); else { setActiveDeptId(selectedDept); setView('dept'); }
-          } else {
-              setError(data.message || 'Incorrect Password');
-          }
-        } catch (err) {
-          console.error("Login fetch error:", err);
-          setError('Network error connecting to database.');
-        }
-        
-        setIsAuthenticating(false);
-      };
-
-      return (
-         <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-xl max-w-md w-full border border-slate-100 dark:border-slate-700 relative transition-colors">
-               <button onClick={() => { setView('home'); setPassword(''); setError('');}} className="absolute top-6 left-6 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><ArrowLeft className="w-6 h-6"/></button>
-               <div className="flex justify-center mb-4">
-                  {loginMode === 'admin' ? <ShieldAlert className="w-12 h-12 text-red-600 dark:text-red-400" /> : <Users className="w-12 h-12 text-blue-600 dark:text-blue-400" />}
-               </div>
-               <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2 text-center tracking-tight">
-                  {loginMode === 'admin' ? 'Master Admin Login' : 'Department Login'}
-               </h2>
-               <p className="text-center text-slate-500 dark:text-slate-400 mb-8 font-medium">Enter your secure credentials to access the portal.</p>
-               
-               <form onSubmit={handleLogin} className="space-y-5">
-                  {loginMode === 'dept' && (
-                     <div>
-                        <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Select Department</label>
-                        <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-white font-medium outline-none focus:border-blue-500 transition-colors shadow-sm" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
-                           {loginableDepartments.map(d => <option key={d.id} value={d.id}>{d.type === 'sub' ? `— ${d.title}` : d.title}</option>)}
-                        </select>
-                     </div>
-                  )}
-                  <div>
-                     <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Password</label>
-                     <div className="relative">
-                       <input 
-                          type={showPassword ? 'text' : 'password'} 
-                          value={password} 
-                          onChange={e => setPassword(e.target.value)} 
-                          disabled={isAuthenticating} 
-                          className="w-full p-4 pr-12 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl outline-none focus:border-blue-500 font-sans text-lg disabled:opacity-50 transition-colors shadow-sm" 
-                          placeholder="Enter Password" 
-                          autoFocus 
-                       />
-                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 outline-none">
-                          {showPassword ? <EyeOff className="w-6 h-6"/> : <Eye className="w-6 h-6"/>}
-                       </button>
-                     </div>
-                  </div>
-                  
-                  {error && <p className="text-red-500 dark:text-red-400 text-sm mt-2 font-bold flex items-center gap-1 bg-red-50 dark:bg-red-900/30 p-3 rounded-lg"><AlertTriangle className="w-4 h-4"/>{error}</p>}
-                  
-                  <button type="submit" disabled={isAuthenticating} className={`w-full text-white font-black py-4 rounded-xl text-lg transition-colors active:scale-95 flex justify-center items-center gap-2 disabled:opacity-70 shadow-md mt-4 border ${loginMode === 'admin' ? 'bg-red-600 hover:bg-red-700 border-red-500' : 'bg-blue-600 hover:bg-blue-700 border-blue-500'}`}>
-                     {isAuthenticating ? <><RefreshCw className="w-5 h-5 animate-spin" /> Verifying...</> : 'Unlock Portal'}
-                  </button>
-               </form>
-            </div>
-         </div>
-      )
     }
 
     function QRGenerator() {
