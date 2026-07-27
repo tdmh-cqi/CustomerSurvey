@@ -48,7 +48,8 @@
       ThumbsUp, MessageSquare, Star, ArrowLeft, Settings, 
       UserCheck, AlertTriangle, Send, Lock, BarChart, QrCode, Printer, 
       BarChart3, Plus, Edit2, TrendingUp, TrendingDown, HeartHandshake, X, CalendarDays, RefreshCw, Save, Check, Moon, Sun,
-      LogOut, Inbox, Scale, Trash2, Clock, Mail, CheckCircle2, ClipboardCheck, ListFilter, Users, ShieldAlert, FileText, Lightbulb
+      LogOut, Inbox, Scale, Trash2, Clock, Mail, CheckCircle2, ClipboardCheck, ListFilter, Users, ShieldAlert, FileText, Lightbulb,
+      Eye, EyeOff // <-- NEW IMPORT FOR PASSWORD TOGGLE
     } from 'lucide-react';
 
     // --- CONFIGURATION & EXTERNAL ASSETS ---
@@ -65,7 +66,7 @@
       { id: 'admitting', title: 'Admitting Services', type: 'standard', questions: [{ id: 'adm_1', text: 'How was your experience with the Admitting Services and the staff(s)?' }] },
       { id: 'er', title: 'Emergency Room Services', type: 'standard', questions: [{ id: 'er_1', text: 'How was your experience with the E.R Services and the staff(s)?' }] },
       { id: 'nursing', title: 'Patient Care/Nursing Services', type: 'standard', questions: [{ id: 'nur_1', text: 'How was your Experience with our Nursing Services/Staff(s)?' }] },
-      { id: 'ancillary', title: 'Ancillary/Diagnostic Services', type: 'checkbox', services: ['Radiology', 'Pathology', 'Laboratory', 'Heart Station'] },
+      { id: 'ancillary', title: 'Ancillary/Diagnostic Services', type: 'checkbox', services: ['Radiology', 'Pathology', 'Laboratory', 'Heart Station', 'Pharmacy'] },
       { id: 'dietary', title: 'Dietary Services', type: 'standard', questions: [{ id: 'die_1', text: 'How was your experience with our Hospital\'s Food?' }] },
       { id: 'special', title: 'Special Services', type: 'checkbox', services: ['Operating Room', 'NICU', 'Hemodialysis', 'HOMES'] },
       { id: 'cashier', title: 'Cashier', type: 'standard', questions: [{ id: 'cas_1', text: 'How was your experience with Our Cashier Service/Staff(s)?' }] },
@@ -73,12 +74,13 @@
       { id: 'philhealth', title: 'Philhealth', type: 'standard', questions: [{ id: 'phi_1', text: 'How was your experience with the Philhealth Service/Staff(s)?' }] },
       { 
         id: 'general', title: 'General Services', type: 'checkbox', 
-        services: ['Housekeeping', 'Linens', 'Room Facilities & Utilities (Maintenance & Elevator)', 'Security'],
+        services: ['Housekeeping', 'Linens', 'Room Facilities & Utilities (Maintenance & Elevator)', 'Security', 'Parking'],
         subTitles: {
           'Housekeeping': 'General Services: Housekeeping',
           'Linens': 'General Services: Linens',
           'Room Facilities & Utilities (Maintenance & Elevator)': 'General Services: Room Facilities & Utilities (Maintenance & Elevator)',
-          'Security': 'General Services: Security'
+          'Security': 'General Services: Security',
+          'Parking': 'General Services: Parking'
         }
       }
     ];
@@ -119,7 +121,7 @@
         return flat;
     };
 
-    const VERSION_KEY = "tdmh_system_v20"; // Forced update to clear cache and adopt perfect General Services grouping
+    const VERSION_KEY = "tdmh_system_v24"; // Forced update to adopt Unified Login System
 
     function App() {
       const [view, setView] = useState('home'); 
@@ -436,11 +438,23 @@
                  border: none !important;
               }
               
-              /* Make tables break properly */
-              table { width: 100% !important; border-collapse: collapse !important; table-layout: auto !important; }
+              /* --- HIGH-CONTRAST PRINT TABLES --- */
+              table { width: 100% !important; border-collapse: collapse !important; table-layout: auto !important; margin-bottom: 20px !important; }
               tr { page-break-inside: avoid !important; }
-              td, th { white-space: normal !important; word-wrap: break-word !important; }
-              * { color: black !important; border-color: #cbd5e1 !important; }
+              td, th { 
+                  white-space: normal !important; 
+                  word-wrap: break-word !important; 
+                  border: 1.5px solid #64748b !important; /* Crisp, solid grid lines for every cell */
+                  color: black !important; 
+              }
+              thead th {
+                  background-color: #f1f5f9 !important; /* Light gray header */
+                  color: black !important;
+              }
+              /* Strip weird outer container borders and roundness in print */
+              .print\:border-0 { border: none !important; }
+              .print\:shadow-none { box-shadow: none !important; }
+              .print\:rounded-none { border-radius: 0 !important; }
               
               body.printing-qr { background-color: white !important; overflow: hidden !important; }
               
@@ -658,7 +672,7 @@
                </div>
 
                {subTab === 'all' && !isDeptView ? (
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col print:border-0 print:shadow-none print:rounded-none">
                      <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
                            <h3 className="font-black text-2xl text-slate-800 dark:text-white font-serif uppercase tracking-widest">ALL COMMENTS</h3>
@@ -801,15 +815,22 @@
     }
 
     function LoginSelectView({ loginMode, setView, setActiveDeptId, departments, flatDepartments, setAuthUser, setLoginToast }) {
-      // Filter out the parent "checkbox" departments from the login dropdown
+      
       const loginableDepartments = flatDepartments.filter(d => {
-         // Keep it if it's a standard department OR if it's a sub-department
-         // Exclude it if it's a 'checkbox' type (which is just a parent grouping)
-         return d.type !== 'checkbox';
+         // Allow 'general' parent login (Unified General Services)
+         if (d.id === 'general') return true;
+         // Hide sub-departments of General Services from the dropdown
+         if (d.parentId === 'general') return false;
+         
+         // Hide other parents (Ancillary, Special) since they still want separate logins
+         if (d.type === 'checkbox') return false;
+         
+         return true;
       });
 
       const [selectedDept, setSelectedDept] = useState(loginableDepartments.length > 0 ? loginableDepartments[0].id : '');
       const [password, setPassword] = useState('');
+      const [showPassword, setShowPassword] = useState(false); // <-- NEW STATE FOR EYE TOGGLE
       const [error, setError] = useState('');
       const [isAuthenticating, setIsAuthenticating] = useState(false);
 
@@ -871,7 +892,20 @@
                   )}
                   <div>
                      <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Password</label>
-                     <input type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={isAuthenticating} className="w-full p-4 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl outline-none focus:border-blue-500 font-sans text-lg disabled:opacity-50 transition-colors shadow-sm" placeholder="Enter Password" autoFocus />
+                     <div className="relative">
+                       <input 
+                          type={showPassword ? 'text' : 'password'} // <-- EYE TOGGLE LOGIC
+                          value={password} 
+                          onChange={e => setPassword(e.target.value)} 
+                          disabled={isAuthenticating} 
+                          className="w-full p-4 pr-12 border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-900 dark:text-white rounded-xl outline-none focus:border-blue-500 font-sans text-lg disabled:opacity-50 transition-colors shadow-sm" 
+                          placeholder="Enter Password" 
+                          autoFocus 
+                       />
+                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 outline-none">
+                          {showPassword ? <EyeOff className="w-6 h-6"/> : <Eye className="w-6 h-6"/>}
+                       </button>
+                     </div>
                   </div>
                   
                   {error && <p className="text-red-500 dark:text-red-400 text-sm mt-2 font-bold flex items-center gap-1 bg-red-50 dark:bg-red-900/30 p-3 rounded-lg"><AlertTriangle className="w-4 h-4"/>{error}</p>}
@@ -1577,7 +1611,7 @@
                     </div>
                     <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mt-6 uppercase tracking-widest">Automated Count</p>
                   </div>
-                  <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between relative group">
+                  <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:emerald-800/50 rounded-3xl p-6 shadow-sm flex flex-col justify-between relative group">
                     <div>
                        <p className="text-emerald-800 dark:text-emerald-300 font-bold mb-1 uppercase tracking-wide text-sm">Response Rate</p>
                        <p className="text-xs text-emerald-700/80 dark:text-emerald-300/80 mb-4 leading-tight">Percentage of patients who answered</p>
@@ -1689,7 +1723,7 @@
                      </div>
                   </div>
 
-                  <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                  <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden print:border-0 print:shadow-none print:rounded-none">
                      {analytics.todaysResponses.length === 0 ? (
                         <div className="p-10 text-center text-slate-400 dark:text-slate-500 font-bold">
                            <Clock className="w-12 h-12 mx-auto mb-4 opacity-30" />
@@ -1744,7 +1778,7 @@
                    <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 shadow-md no-print font-sans"><Printer className="w-5 h-5" /> Print Table</button>
                  </div>
 
-                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm overflow-hidden flex flex-col transition-colors">
+                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm overflow-hidden flex flex-col transition-colors print:border-0 print:shadow-none print:rounded-none">
                    <div className="overflow-x-auto custom-scrollbar pb-2 print:overflow-visible">
                      <table className="w-full text-left border-collapse min-w-[1200px] print:min-w-0 print:w-full">
                        <thead>
@@ -1783,58 +1817,44 @@
 
             {/* 3. FEEDBACK MASTERLIST TAB */}
             {activeTab === 'feedback & CQI masterlist' && (
-               <div className="space-y-6 animate-in slide-in-from-bottom-2">
-                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
-                    <div>
-                      <h3 className="text-3xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-3"><ClipboardCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Feedback & CQI Masterlist</h3>
-                      <p className="text-slate-600 dark:text-slate-300 mt-2 font-medium">Organize, filter, and track the status of all patient comments.</p>
-                    </div>
-                 </div>
-
-                 <MasterFeedbackManager 
-                    comments={analytics.allCommentsArray} 
-                    commentCats={commentCats} 
-                    setCommentCats={setCommentCats} 
-                    selectedMonth={selectedCommentMonth} 
-                    onMonthChange={setSelectedCommentMonth} 
-                    monthsList={analytics.allMonthsKeys}
-                    flatDepartments={flatDepartments}
-                    cqiReports={cqiReports}
-                 />
+               <div className="animate-in slide-in-from-bottom-2">
+                  <MasterFeedbackManager 
+                     comments={analytics.allCommentsArray} 
+                     commentCats={commentCats} 
+                     setCommentCats={setCommentCats} 
+                     selectedMonth={selectedCommentMonth} 
+                     onMonthChange={setSelectedCommentMonth} 
+                     monthsList={analytics.allMonthsKeys}
+                     flatDepartments={flatDepartments}
+                     cqiReports={cqiReports}
+                     isDeptView={false}
+                  />
                </div>
             )}
 
-            {/* 3.5 STATUS REPORTS COMPILATION TAB (ADMIN ARCHIVE) */}
+            {/* 3.5 STATUS REPORTS COMPILATION TAB */}
             {activeTab === 'status reports compilation' && (
                <div className="space-y-6 animate-in slide-in-from-bottom-2">
                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
                     <div>
                       <h3 className="text-3xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-3"><ClipboardList className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Status Reports Compilation</h3>
-                      <p className="text-slate-700 dark:text-slate-300 mt-2 font-medium">A permanent record of all formal CQI reports submitted by departments.</p>
+                      <p className="text-slate-600 dark:text-slate-300 mt-2 font-medium">A permanent record of all formal CQI reports submitted by departments.</p>
                     </div>
+                    <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 shadow-md no-print"><Printer className="w-4 h-4" /> Print Archive</button>
                  </div>
 
-                 <div className="bg-slate-100/50 dark:bg-slate-900/50 p-4 sm:p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-4 mb-6 no-print">
-                    <div className="flex-1">
-                       <label className="block text-slate-600 dark:text-slate-400 font-black text-xs mb-2 uppercase tracking-widest">Filter by Month</label>
-                       <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm" value={selectedArchiveMonth} onChange={e => setSelectedArchiveMonth(e.target.value)}>
-                          <option value="all">All Months</option>
-                          {analytics.allMonthsKeys.map((mk) => <option key={mk} value={mk}>{ALL_MONTHS_LABELS[parseInt(mk.split('-')[1])-1]} {mk.split('-')[0]}</option>)}
-                       </select>
-                    </div>
-                    <div className="flex-1">
-                       <label className="block text-slate-600 dark:text-slate-400 font-black text-xs mb-2 uppercase tracking-widest">Filter by Department</label>
-                       <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm" value={selectedArchiveDept} onChange={e => setSelectedArchiveDept(e.target.value)}>
-                          <option value="all">All Departments</option>
-                          {flatDepartments.map(d => <option key={d.id} value={d.title}>{d.type === 'sub' ? `— ${d.title}` : d.title}</option>)}
-                       </select>
-                    </div>
-                    <div className="flex items-end hidden sm:flex">
-                       <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 shadow-sm no-print h-full min-w-[140px]"><Printer className="w-5 h-5" /> Print List</button>
-                    </div>
+                 <div className="flex flex-col sm:flex-row gap-4 mb-2 no-print">
+                    <select className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none shadow-sm flex-1 sm:flex-none" value={selectedArchiveMonth} onChange={e => setSelectedArchiveMonth(e.target.value)}>
+                       <option value="all">All Months</option>
+                       {analytics.allMonthsKeys.map(mk => <option key={mk} value={mk}>{mk}</option>)}
+                    </select>
+                    <select className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none shadow-sm flex-1 sm:flex-none max-w-xs" value={selectedArchiveDept} onChange={e => setSelectedArchiveDept(e.target.value)}>
+                       <option value="all">All Departments</option>
+                       {flatDepartments.filter(d => d.type !== 'checkbox' && d.id !== 'general').map(d => <option key={d.id} value={d.title}>{d.title}</option>)}
+                    </select>
                  </div>
 
-                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
+                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors print:border-0 print:shadow-none print:rounded-none">
                     <div className="overflow-x-auto custom-scrollbar print:overflow-visible">
                        <table className="w-full text-left min-w-[1000px] print:min-w-0 print:w-full print:border-collapse">
                           <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700 print:bg-transparent print:text-black">
@@ -1987,12 +2007,20 @@
     }
 
     function DepartmentDashboard({ responses, deptId, departments, flatDepartments, commentCats, setCommentCats, cqiReports }) {
-      const dept = flatDepartments.find(d => d.id === deptId);
+      
+      const dept = departments.find(d => d.id === deptId) || flatDepartments.find(d => d.id === deptId);
+      const isGrouped = dept?.type === 'checkbox';
+      
       const [activeTab, setActiveTab] = useState('overview'); 
+      const [activeSubDept, setActiveSubDept] = useState(isGrouped ? `${dept.id}_${dept.services[0]}` : null);
       
       const currentMonthKey = getMonthString(new Date());
       const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
       const [selectedArchiveMonth, setSelectedArchiveMonth] = useState('all');
+
+      // The specific department we are analyzing (either a normal dept, or the selected sub-dept)
+      const targetDeptId = isGrouped ? activeSubDept : deptId;
+      const targetDept = flatDepartments.find(d => d.id === targetDeptId);
 
       const monthlyData = useMemo(() => {
         const currentYear = new Date().getFullYear();
@@ -2010,17 +2038,17 @@
           let localScore = 0; let localCount = 0;
           let commentData = null;
 
-          if (res.departments[deptId] && !res.departments[deptId].skipped && res.departments[deptId].answers) {
-             Object.values(res.departments[deptId].answers).forEach(score => {
+          if (res.departments[targetDeptId] && !res.departments[targetDeptId].skipped && res.departments[targetDeptId].answers) {
+             Object.values(res.departments[targetDeptId].answers).forEach(score => {
                 localScore += Number(score) || 0; localCount++;
              });
-             commentData = res.departments[deptId].comment;
+             commentData = res.departments[targetDeptId].comment;
           }
 
-          const origDef = departments.find(d => d.id === deptId);
+          const origDef = departments.find(d => d.id === targetDeptId);
           if (origDef && origDef.type === 'checkbox') {
              origDef.services.forEach(svc => {
-                const subId = `${deptId}_${svc}`;
+                const subId = `${targetDeptId}_${svc}`;
                 if (res.departments[subId] && !res.departments[subId].skipped && res.departments[subId].answers) {
                     Object.values(res.departments[subId].answers).forEach(score => {
                         localScore += Number(score) || 0; localCount++;
@@ -2041,9 +2069,9 @@
                 if (commentData && commentData.trim() !== '') {
                    const avg = (localScore/localCount);
                    const fallbackTime = new Date(res.timestamp).getTime();
-                   const uniqueId = `${res.id || fallbackTime}_${deptId}`;
+                   const uniqueId = `${res.id || fallbackTime}_${targetDeptId}`;
                    
-                   const cObj = { id: uniqueId, text: commentData, date: res.timestamp, score: avg, room: res.general?.room_number || 'Unknown', deptName: dept?.title };
+                   const cObj = { id: uniqueId, text: commentData, date: res.timestamp, score: avg, room: res.general?.room_number || 'Unknown', deptName: targetDept?.title };
                    months[monthKey].comments.push(cObj);
                 }
             }
@@ -2056,7 +2084,7 @@
           const satPct = maxPossible > 0 ? Math.min(Math.round((d.totalScore / maxPossible) * 100), 100) : 0;
           return { label: d.label, key: d.key, pct: satPct, count: d.count, comments: d.comments };
         }); 
-      }, [responses, deptId, departments]);
+      }, [responses, targetDeptId, departments, targetDept]);
 
       const selectedMonthData = monthlyData.find(m => m.key === selectedMonth) || { comments: [], label: '', pct: 0, count: 0 };
       const latestMonth = monthlyData.find(m => m.key === currentMonthKey) || { pct: 0, count: 0, label: 'N/A' };
@@ -2104,7 +2132,7 @@
 
          const payload = {
             action: "send_report",
-            deptName: dept?.title,
+            deptName: targetDept?.title,
             month: selectedMonth,
             reports: finalReportData
          };
@@ -2130,7 +2158,7 @@
 
       const filteredCqiReports = cqiReports.filter(r => {
          let match = true;
-         if (r.Department !== dept?.title) match = false;
+         if (r.Department !== targetDept?.title) match = false;
          if (selectedArchiveMonth !== 'all' && r.Report_Month !== selectedArchiveMonth) match = false;
          return match;
       });
@@ -2140,12 +2168,29 @@
           <div className="absolute inset-0 z-0 opacity-10 pointer-events-none hidden print:block" style={{backgroundImage: `url('${BACKGROUND_URL}')`, backgroundSize: 'cover', backgroundPosition: 'center'}} />
           <div className="relative z-10">
             
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 sm:p-12 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 transition-colors">
-              <div>
-                 <h2 className="text-3xl font-bold text-slate-900 dark:text-white font-serif">{dept?.title}</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 sm:p-12 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 transition-colors pb-6 sm:pb-8">
+              <div className="w-full">
+                 <h2 className="text-3xl font-bold text-slate-900 dark:text-white font-serif">{isGrouped ? targetDept?.title : dept?.title}</h2>
                  <p className="text-slate-600 dark:text-slate-300 mt-1 font-sans">Departmental Performance Report</p>
+                 
+                 {isGrouped && (
+                    <div className="mt-6 bg-slate-50 dark:bg-slate-900/50 p-2 sm:p-3 rounded-2xl flex flex-wrap gap-2 border border-slate-200 dark:border-slate-700 shadow-inner no-print w-full">
+                       {dept.services.map(svc => {
+                           const fullId = `${dept.id}_${svc}`;
+                           const isActive = activeSubDept === fullId;
+                           return (
+                              <button key={fullId} onClick={() => setActiveSubDept(fullId)} className={`px-4 py-3 rounded-xl text-sm font-bold transition-all flex-1 min-w-[120px] ${isActive ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-400 shadow-md border border-slate-200 dark:border-slate-600 scale-[1.02]' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/80 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+                                 {svc}
+                              </button>
+                           )
+                       })}
+                    </div>
+                 )}
               </div>
-              <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 no-print font-sans shadow-md mt-4 sm:mt-0"><Printer className="w-4 h-4" /> Print</button>
+              
+              {!isGrouped && (
+                 <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 no-print font-sans shadow-md mt-4 sm:mt-0"><Printer className="w-4 h-4" /> Print</button>
+              )}
             </div>
 
             <div className="flex border-b border-slate-200 dark:border-slate-700 px-4 sm:px-10 bg-slate-50/80 dark:bg-slate-900/80 overflow-x-auto custom-scrollbar no-print shrink-0 pb-1">
@@ -2228,20 +2273,7 @@
                        </div>
                     </div>
 
-                    <div className="bg-slate-100/50 dark:bg-slate-900/50 p-4 sm:p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-4 mb-6 no-print">
-                       <div className="flex-1">
-                          <label className="block text-slate-600 dark:text-slate-400 font-black text-xs mb-2 uppercase tracking-widest">Filter by Month</label>
-                          <select className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-white outline-none focus:border-blue-500 transition-colors shadow-sm" value={selectedArchiveMonth} onChange={e => setSelectedArchiveMonth(e.target.value)}>
-                             <option value="all">All Months</option>
-                             {monthlyData.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
-                          </select>
-                       </div>
-                       <div className="flex items-end hidden sm:flex">
-                          <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 shadow-sm no-print h-full min-w-[140px]"><Printer className="w-5 h-5" /> Print List</button>
-                       </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors print:border-0 print:shadow-none print:rounded-none">
                        <div className="overflow-x-auto custom-scrollbar print:overflow-visible">
                           <table className="w-full text-left min-w-[900px] print:min-w-0 print:w-full print:border-collapse">
                              <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700 print:bg-transparent print:text-black">
@@ -2335,7 +2367,7 @@
                           <p className="text-green-700 dark:text-green-300 font-medium">Your monthly CQI Status Report has been officially logged and sent to the Master Admin.</p>
                        </div>
                     ) : (
-                       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
+                       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors print:border-0 print:shadow-none print:rounded-none">
                           <div className="overflow-x-auto custom-scrollbar">
                              <table className="w-full text-left min-w-[1000px]">
                                 <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700">
