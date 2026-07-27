@@ -49,16 +49,19 @@
       UserCheck, AlertTriangle, Send, Lock, BarChart, QrCode, Printer, 
       BarChart3, Plus, Edit2, TrendingUp, TrendingDown, HeartHandshake, X, CalendarDays, RefreshCw, Save, Check, Moon, Sun,
       LogOut, Inbox, Scale, Trash2, Clock, Mail, CheckCircle2, ClipboardCheck, ListFilter, Users, ShieldAlert, FileText, Lightbulb,
-      Eye, EyeOff, ExternalLink, Database
+      Eye, EyeOff, ExternalLink, Database, Maximize2
     } from 'lucide-react';
 
+    // --- CONFIGURATION & EXTERNAL ASSETS ---
     const FORM_CONTROL_NO = "TDMH-CQI-F-001-4-0";
     const GITHUB_BASE_URL = "https://raw.githubusercontent.com/tdmh-cqi/CustomerSurvey/main/images";
     const LOGO_URL = `${GITHUB_BASE_URL}/tdmh-logo.png`;
     const BACKGROUND_URL = `${GITHUB_BASE_URL}/tdmh-background.jpg`;
 
+    // APPS SCRIPT WEB APP URL
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw93n00Ey6NoG92Nvcli_uAzeDINXBOL_i6El6txQvoYEp4pLFlQ5BSyxKUqUiI2DUCiQ/exec"; 
 
+    // DEFAULT DEPARTMENTS
     const DEFAULT_DEPARTMENTS = [
       { id: 'admitting', title: 'Admitting Services', type: 'standard', questions: [{ id: 'adm_1', text: 'How was your experience with the Admitting Services and the staff(s)?' }] },
       { id: 'er', title: 'Emergency Room Services', type: 'standard', questions: [{ id: 'er_1', text: 'How was your experience with the E.R Services and the staff(s)?' }] },
@@ -117,7 +120,7 @@
         return flat;
     };
 
-    const VERSION_KEY = "tdmh_system_v24"; 
+    const VERSION_KEY = "tdmh_system_v24";
 
     function App() {
       const [view, setView] = useState('home'); 
@@ -129,6 +132,9 @@
       const [surveyKey, setSurveyKey] = useState(0); 
       const [confirmSync, setConfirmSync] = useState(false);
       const [loginMode, setLoginMode] = useState(null);
+
+      // --- IN-APP IFRAME DOCUMENT VIEWER STATE ---
+      const [iframeUrl, setIframeUrl] = useState(null);
 
       const [authUser, setAuthUser] = useState(() => {
          try { return JSON.parse(localStorage.getItem('tdmh_auth')) || null; } catch(e) { return null; }
@@ -388,7 +394,7 @@
       }
 
       return (
-        <div className={`min-h-screen transition-colors duration-500 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 selection:bg-blue-200 dark:selection:bg-blue-800 relative pro-font flex flex-col ${(drillDown || showSuccess) ? 'overflow-hidden' : ''}`}>
+        <div className={`min-h-screen transition-colors duration-500 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 selection:bg-blue-200 dark:selection:bg-blue-800 relative pro-font flex flex-col ${(drillDown || showSuccess || iframeUrl) ? 'overflow-hidden' : ''}`}>
           <style dangerouslySetInnerHTML={{__html: `
             @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
             .pro-font { font-family: 'Lora', serif; }
@@ -506,6 +512,22 @@
              </div>
           )}
 
+          {/* NEW: IN-APP IFRAME DOCUMENT VIEWER */}
+          {iframeUrl && (
+             <div className="fixed inset-0 z-[120] bg-slate-900/90 backdrop-blur-sm flex flex-col p-4 animate-in fade-in duration-300 no-print font-sans">
+                <div className="flex justify-between items-center mb-4 bg-white/10 p-4 rounded-2xl backdrop-blur-md">
+                   <div className="text-white font-black text-lg flex items-center gap-3"><FileText className="w-6 h-6 text-blue-400"/> Document Viewer</div>
+                   <div className="flex gap-4">
+                      <a href={iframeUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-white hover:text-blue-400 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition-colors text-sm font-bold"><ExternalLink className="w-4 h-4"/> Open in Tab</a>
+                      <button onClick={() => setIframeUrl(null)} className="flex items-center gap-2 text-white hover:text-red-400 bg-white/10 hover:bg-red-500/20 px-4 py-2 rounded-xl transition-colors text-sm font-bold"><X className="w-4 h-4"/> Close</button>
+                   </div>
+                </div>
+                <div className="flex-1 bg-white rounded-3xl overflow-hidden shadow-2xl relative">
+                   <iframe src={iframeUrl.includes('/edit') ? iframeUrl.replace('/edit', '/preview') : iframeUrl} className="w-full h-full border-0 absolute inset-0" title="Document Viewer"></iframe>
+                </div>
+             </div>
+          )}
+
           <div className="fixed inset-0 z-0 pointer-events-none transition-colors duration-700 no-print">
              <div className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-700 ${isDark ? 'opacity-[0.10] mix-blend-luminosity' : 'opacity-20 mix-blend-multiply'}`} style={{ backgroundImage: `url('${BACKGROUND_URL}')` }} />
              <div className={`absolute inset-0 transition-opacity duration-700 ${isDark ? 'bg-slate-950/80 opacity-100' : 'bg-transparent opacity-0'}`} />
@@ -519,7 +541,6 @@
              {isDark ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
           </button>
 
-          {}
           {view !== 'survey' && (
             <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-sm border-b-4 border-blue-600 dark:border-blue-500 sticky top-0 z-20 no-print transition-colors duration-300">
               <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between relative min-h-[6rem] sm:min-h-[7rem]">
@@ -590,8 +611,8 @@
                </div>
             )}
             {view === 'login' && <LoginSelectView loginMode={loginMode} setView={setView} setActiveDeptId={setActiveDeptId} departments={departments} flatDepartments={flatDepartments} setAuthUser={setAuthUser} setLoginToast={setLoginToast} />}
-            {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} flatDepartments={flatDepartments} drillDown={drillDown} setDrillDown={setDrillDown} commentCats={commentCats} setCommentCats={setCommentCats} intakeQuestions={intakeQuestions} setIntakeQuestions={setIntakeQuestions} handleHardRefresh={handleHardRefresh} cqiReports={cqiReports} legacy2025={legacy2025} />}
-            {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} flatDepartments={flatDepartments} commentCats={commentCats} setCommentCats={setCommentCats} cqiReports={cqiReports} legacy2025={legacy2025} />}
+            {view === 'admin' && <AdminDashboard responses={responses} censusData={censusData} setCensusData={setCensusData} activeDepartments={activeDepartments} setActiveDepartments={setActiveDepartments} departments={departments} setDepartments={setDepartments} flatDepartments={flatDepartments} drillDown={drillDown} setDrillDown={setDrillDown} commentCats={commentCats} setCommentCats={setCommentCats} intakeQuestions={intakeQuestions} setIntakeQuestions={setIntakeQuestions} handleHardRefresh={handleHardRefresh} cqiReports={cqiReports} legacy2025={legacy2025} setIframeUrl={setIframeUrl} />}
+            {view === 'dept' && <DepartmentDashboard responses={responses} deptId={activeDeptId} departments={departments} flatDepartments={flatDepartments} commentCats={commentCats} setCommentCats={setCommentCats} cqiReports={cqiReports} legacy2025={legacy2025} setIframeUrl={setIframeUrl} />}
             {view === 'qr' && <QRGenerator />}
           </main>
 
@@ -605,7 +626,7 @@
       );
     }
 
-    function AdminDashboard({ responses, censusData, setCensusData, activeDepartments, setActiveDepartments, departments, setDepartments, flatDepartments, drillDown, setDrillDown, commentCats, setCommentCats, intakeQuestions, setIntakeQuestions, handleHardRefresh, cqiReports, legacy2025 }) {
+    function AdminDashboard({ responses, censusData, setCensusData, activeDepartments, setActiveDepartments, departments, setDepartments, flatDepartments, drillDown, setDrillDown, commentCats, setCommentCats, intakeQuestions, setIntakeQuestions, handleHardRefresh, cqiReports, legacy2025, setIframeUrl }) {
       const [activeTab, setActiveTab] = useState('overview'); 
       const [newDeptName, setNewDeptName] = useState('');
       const [newQuestions, setNewQuestions] = useState({});
@@ -833,23 +854,6 @@
          if (selectedArchiveDept !== 'all' && r.Department !== selectedArchiveDept) match = false;
          return match;
       });
-
-      // --- LEGACY 2025 CALCULATION ---
-      let legacy2025Points = 0;
-      let legacy2025Max = 0;
-      if (legacy2025?.data) {
-          legacy2025.data.forEach(row => {
-              Object.values(row).forEach(val => {
-                  const num = Number(val);
-                  if (num >= 1 && num <= 4) {
-                      legacy2025Points += num;
-                      legacy2025Max += 4; // 4 point max scale
-                  }
-              });
-          });
-      }
-      const legacy2025SatPct = legacy2025Max > 0 ? Math.round((legacy2025Points / legacy2025Max) * 100) : 0;
-      const adminLegacyLinks = legacy2025?.links?.[0] || {}; // Master links are in the first row
 
       return (
         <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md sm:rounded-[2rem] shadow-2xl border border-white dark:border-slate-700/50 overflow-hidden min-h-[75vh] animate-in fade-in duration-500 font-sans print-dashboard relative">
@@ -1322,59 +1326,7 @@
 
             {/* 5. 2025 HISTORICAL VAULT TAB (ADMIN VIEW) */}
             {activeTab === '2025 historical vault' && (
-               <div className="animate-in slide-in-from-bottom-2 space-y-10 no-print">
-                  <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-8 sm:p-10 rounded-[2rem] shadow-xl border border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-6 relative overflow-hidden">
-                     <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none"><Database className="w-40 h-40" /></div>
-                     <div className="relative z-10">
-                        <h3 className="text-3xl font-black font-serif flex items-center gap-3"><FileText className="w-8 h-8 text-amber-400" /> 2025 Legacy Archive</h3>
-                        <p className="text-slate-300 mt-2 font-medium text-lg max-w-2xl">A secure, read-only vault of the finalized Patient Satisfaction data, translated from the legacy 4-point grading scale.</p>
-                     </div>
-                     
-                     <div className="flex gap-4 shrink-0 relative z-10 w-full sm:w-auto">
-                        <div className="bg-slate-800/80 backdrop-blur border border-slate-600 p-4 rounded-2xl flex-1 text-center">
-                           <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mb-1">Total Surveys (2025)</p>
-                           <p className="text-3xl font-black text-white">{legacy2025?.data?.length || 0}</p>
-                        </div>
-                        <div className="bg-slate-800/80 backdrop-blur border border-slate-600 p-4 rounded-2xl flex-1 text-center">
-                           <p className="text-amber-400 font-bold uppercase tracking-widest text-[10px] mb-1">Overall Satisfaction</p>
-                           <p className="text-3xl font-black text-white">{legacy2025SatPct}%</p>
-                        </div>
-                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                     <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-blue-400 transition-colors">
-                        <div>
-                           <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-blue-200 dark:border-slate-600"><MessageSquare className="w-7 h-7" /></div>
-                           <h4 className="text-2xl font-black text-slate-800 dark:text-white mb-2 font-serif">All Comments</h4>
-                           <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">Access the unfiltered masterlist of every patient comment and suggestion from 2025.</p>
-                        </div>
-                        <a href={adminLegacyLinks['All Comments Link'] || '#'} target="_blank" rel="noreferrer" className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 shadow-md">
-                           Open Masterlist <ExternalLink className="w-5 h-5" />
-                        </a>
-                     </div>
-                     <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-indigo-400 transition-colors">
-                        <div>
-                           <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-indigo-200 dark:border-slate-600"><BarChart3 className="w-7 h-7" /></div>
-                           <h4 className="text-2xl font-black text-slate-800 dark:text-white mb-2 font-serif">Monthly Census</h4>
-                           <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">Review the monthly breakdown, tallies, and analytics charts generated for 2025.</p>
-                        </div>
-                        <a href={adminLegacyLinks['Monthly Census Link'] || '#'} target="_blank" rel="noreferrer" className="w-full bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white dark:bg-slate-700 dark:text-white dark:hover:bg-indigo-600 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 border border-indigo-200 dark:border-slate-600">
-                           Open Monthly Data <ExternalLink className="w-5 h-5" />
-                        </a>
-                     </div>
-                     <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-purple-400 transition-colors">
-                        <div>
-                           <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-purple-200 dark:border-slate-600"><CalendarDays className="w-7 h-7" /></div>
-                           <h4 className="text-2xl font-black text-slate-800 dark:text-white mb-2 font-serif">Yearly Census</h4>
-                           <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">Access the finalized, comprehensive year-end statistical report for 2025.</p>
-                        </div>
-                        <a href={adminLegacyLinks['Yearly Census Link'] || '#'} target="_blank" rel="noreferrer" className="w-full bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white dark:bg-slate-700 dark:text-white dark:hover:bg-purple-600 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 border border-purple-200 dark:border-slate-600">
-                           Open Yearly Data <ExternalLink className="w-5 h-5" />
-                        </a>
-                     </div>
-                  </div>
-               </div>
+               <LegacyDashboard2025 legacy2025={legacy2025} setIframeUrl={setIframeUrl} isAdmin={true} />
             )}
 
           </div>
@@ -1382,7 +1334,7 @@
       );
     }
 
-    function DepartmentDashboard({ responses, deptId, departments, flatDepartments, commentCats, setCommentCats, cqiReports, legacy2025 }) {
+    function DepartmentDashboard({ responses, deptId, departments, flatDepartments, commentCats, setCommentCats, cqiReports, legacy2025, setIframeUrl }) {
       
       const dept = departments.find(d => d.id === deptId) || flatDepartments.find(d => d.id === deptId);
       const isGrouped = dept?.type === 'checkbox';
@@ -1543,9 +1495,6 @@
          if (selectedArchiveMonth !== 'all' && r.Report_Month !== selectedArchiveMonth) match = false;
          return match;
       });
-
-      // --- LEGACY 2025 MAPPING ---
-      const legacyLinks = legacy2025?.links?.find(l => l.System_ID === targetDeptId);
 
       return (
         <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-700 print-dashboard relative transition-colors overflow-hidden">
@@ -1827,61 +1776,369 @@
 
               {/* 5. 2025 HISTORICAL VAULT TAB (DEPT VIEW) */}
               {activeTab === '2025 historical vault' && (
-                 <div className="animate-in slide-in-from-bottom-2 space-y-8 no-print">
-                    <div className="flex flex-col justify-between items-start mb-6">
-                       <h3 className="text-3xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-3"><FileText className="w-8 h-8 text-amber-500" /> 2025 Historical Data Vault</h3>
-                       <p className="text-slate-600 dark:text-slate-400 mt-2 font-medium text-lg">Access your finalized, read-only reports and patient comments from the 2025 operational year.</p>
-                    </div>
-
-                    {!legacyLinks ? (
-                        <div className="bg-slate-50 dark:bg-slate-900/50 p-12 rounded-[2rem] border border-slate-200 dark:border-slate-700 text-center">
-                           <Database className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-                           <h4 className="text-xl font-black text-slate-600 dark:text-slate-400">No Archive Found</h4>
-                           <p className="text-slate-500 mt-2">There is no legacy 2025 data mapped to this specific department.</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <div className="bg-white dark:bg-slate-800 p-8 sm:p-10 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between group hover:border-blue-300 transition-colors">
-                              <div>
-                                 <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 border border-blue-100 dark:border-slate-600 shadow-inner group-hover:scale-110 transition-transform"><MessageSquare className="w-8 h-8" /></div>
-                                 <h4 className="text-2xl font-black text-slate-800 dark:text-white mb-3 font-serif">Patient Comments</h4>
-                                 <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 leading-relaxed">View the raw, unfiltered patient feedback specifically submitted for your department during 2025.</p>
-                              </div>
-                              <a href={legacyLinks['Links for the Comments Compilation'] || '#'} target="_blank" rel="noreferrer" className="w-full bg-slate-800 hover:bg-blue-600 text-white py-4 px-6 rounded-xl font-black transition-all flex items-center justify-center gap-3 shadow-md">
-                                 Open 2025 Comments <ExternalLink className="w-5 h-5" />
-                              </a>
-                           </div>
-                           
-                           <div className="bg-white dark:bg-slate-800 p-8 sm:p-10 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between group hover:border-amber-300 transition-colors">
-                              <div>
-                                 <div className="w-16 h-16 bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mb-6 border border-amber-100 dark:border-slate-600 shadow-inner group-hover:scale-110 transition-transform"><ClipboardCheck className="w-8 h-8" /></div>
-                                 <h4 className="text-2xl font-black text-slate-800 dark:text-white mb-3 font-serif">CQI Status Reports</h4>
-                                 <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 leading-relaxed">Review your official, submitted Action and Evaluation reports logged for the 2025 year.</p>
-                              </div>
-                              <a href={legacyLinks['Links for the Status Reports Compilation'] || '#'} target="_blank" rel="noreferrer" className="w-full bg-slate-800 hover:bg-amber-500 text-white py-4 px-6 rounded-xl font-black transition-all flex items-center justify-center gap-3 shadow-md">
-                                 Open 2025 Reports <ExternalLink className="w-5 h-5" />
-                              </a>
-                           </div>
-                        </div>
-                    )}
-                 </div>
+                 <LegacyDashboard2025 legacy2025={legacy2025} setIframeUrl={setIframeUrl} isAdmin={false} targetDeptId={targetDeptId} />
               )}
 
             </div>
           </div>
-
-          {reportError && (
-             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-                <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-2xl max-w-md w-full text-center border border-red-200 dark:border-red-900/50">
-                   <div className="w-20 h-20 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-6"><AlertTriangle className="w-10 h-10"/></div>
-                   <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2 font-serif">Submission Failed</h3>
-                   <p className="text-slate-600 dark:text-slate-400 mb-8 font-medium">{reportError}</p>
-                   <button onClick={() => setReportError(null)} className="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-4 px-6 rounded-xl transition-colors">Dismiss</button>
-                </div>
-             </div>
-          )}
         </div>
       );
+    }
+
+    // --- NEW: DEDICATED 2025 NATIVE REPLICA DASHBOARD ---
+    function LegacyDashboard2025({ legacy2025, setIframeUrl, isAdmin, targetDeptId }) {
+       const [vaultTab, setVaultTab] = useState('native_overview');
+       const [overviewMonth, setOverviewMonth] = useState('all');
+
+       // Map 2025 links directly based on user role
+       const myLinks = isAdmin ? legacy2025?.links?.[0] : legacy2025?.links?.find(l => l.System_ID === targetDeptId);
+
+       const analytics2025 = useMemo(() => {
+          if (!legacy2025?.data) return { months: {}, comments: [], totalCensus: 0, overallSatPct: 0, insightCounts: {} };
+
+          const monthsData = {};
+          const allComments = [];
+          const insightCounts = {
+             q1: { Yes: 0, No: 0 },
+             q2: { Superior: 0, 'At Par': 0, Inferior: 0 },
+             q3: { Yes: 0, No: 0 }
+          };
+          
+          let totalPoints = 0;
+          let maxPoints = 0;
+
+          // Process row by row
+          legacy2025.data.forEach((row, index) => {
+             // 1. Timestamp Parsing
+             const rawDate = row["Timestamp"];
+             const dateObj = new Date(rawDate);
+             if (isNaN(dateObj.getTime())) return;
+             const monthKey = getMonthString(dateObj);
+             if (monthKey.indexOf('2025') === -1) return; // Ensure it's 2025 data
+
+             if (!monthsData[monthKey]) monthsData[monthKey] = { count: 0, score: 0, max: 0 };
+             monthsData[monthKey].count += 1;
+
+             // 2. Score Parsing (4-point scale logic)
+             let rowPoints = 0;
+             let rowMax = 0;
+             Object.keys(row).forEach(key => {
+                if (key.includes('[')) { // Only score columns have brackets
+                   const val = Number(row[key]);
+                   if (val >= 1 && val <= 4) {
+                      rowPoints += val;
+                      rowMax += 4;
+                   }
+                }
+             });
+             monthsData[monthKey].score += rowPoints;
+             monthsData[monthKey].max += rowMax;
+             totalPoints += rowPoints;
+             maxPoints += rowMax;
+
+             // 3. Comments Parsing (Column 56)
+             const rawComment = row["Do you have comments or suggestions?  "];
+             if (rawComment && rawComment.trim().length > 0) {
+                 allComments.push({
+                    id: `legacy_2025_${index}`,
+                    date: rawDate,
+                    name: row["Complete Name ( First Name, Middle Initial, Last Name) : "] || "Anonymous",
+                    text: rawComment
+                 });
+             }
+
+             // 4. General Insights Parsing (Specific Columns)
+             const v1 = row["Have you visited or have you been admitted to another hospital?"];
+             if (v1 === 'Yes') insightCounts.q1.Yes++; else if (v1 === 'No') insightCounts.q1.No++;
+
+             const v2 = row["How do you compare Taytay Doctors Multispecialty Hospital to other hospitals?"];
+             if (v2 === 'Superior') insightCounts.q2.Superior++; 
+             else if (v2 === 'At Par') insightCounts.q2['At Par']++; 
+             else if (v2 === 'Inferior') insightCounts.q2.Inferior++;
+
+             const v3 = row["Do you want to receive health tips and service updates from Taytay Doctors Multispecialty Hospital?"];
+             if (v3 === 'Yes') insightCounts.q3.Yes++; else if (v3 === 'No') insightCounts.q3.No++;
+          });
+
+          return { 
+             months: monthsData, 
+             comments: allComments.reverse(), 
+             totalCensus: legacy2025.data.length,
+             overallSatPct: maxPoints > 0 ? Math.round((totalPoints / maxPoints) * 100) : 0,
+             insightCounts 
+          };
+       }, [legacy2025]);
+
+       // Filter logic for Native Overview
+       let displayCensus = analytics2025.totalCensus;
+       let displaySat = analytics2025.overallSatPct;
+       if (overviewMonth !== 'all' && analytics2025.months[overviewMonth]) {
+          displayCensus = analytics2025.months[overviewMonth].count;
+          const mData = analytics2025.months[overviewMonth];
+          displaySat = mData.max > 0 ? Math.round((mData.score / mData.max) * 100) : 0;
+       } else if (overviewMonth !== 'all') {
+          displayCensus = 0; displaySat = 0;
+       }
+
+       return (
+          <div className="animate-in slide-in-from-bottom-2 space-y-10 no-print">
+             
+             {/* 2025 HEADER BANNER */}
+             <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-8 sm:p-10 rounded-[2rem] shadow-xl border border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none"><Database className="w-40 h-40" /></div>
+                <div className="relative z-10 w-full">
+                   <h3 className="text-3xl font-black font-serif flex items-center gap-3"><FileText className="w-8 h-8 text-amber-400" /> 2025 Legacy Archive</h3>
+                   <p className="text-slate-300 mt-2 font-medium text-lg max-w-2xl">A secure, read-only vault of your finalized Patient Satisfaction data.</p>
+                   
+                   {/* SUB-TABS FOR 2025 */}
+                   <div className="flex gap-2 mt-6 bg-slate-800 p-2 rounded-2xl border border-slate-600 inline-flex w-full sm:w-auto">
+                      <button onClick={() => setVaultTab('native_overview')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${vaultTab === 'native_overview' ? 'bg-amber-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>Native Dashboard</button>
+                      <button onClick={() => setVaultTab('native_feedback')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${vaultTab === 'native_feedback' ? 'bg-amber-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>Raw Feedback List</button>
+                      <button onClick={() => setVaultTab('official_docs')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${vaultTab === 'official_docs' ? 'bg-amber-500 text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>Official Documents</button>
+                   </div>
+                </div>
+             </div>
+
+             {/* SUB-TAB 1: NATIVE REPLICA OVERVIEW */}
+             {vaultTab === 'native_overview' && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                   <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap gap-4">
+                      <h3 className="text-xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-2"><BarChart className="text-amber-500 w-6 h-6"/> 2025 Filter</h3>
+                      <div className="flex items-center gap-3">
+                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Select Month:</label>
+                         <select className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 px-4 text-sm font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500 shadow-inner" value={overviewMonth} onChange={e => setOverviewMonth(e.target.value)}>
+                            <option value="all">Full Year 2025</option>
+                            {ALL_MONTHS_LABELS.map((m, i) => {
+                               const mk = `2025-${String(i+1).padStart(2,'0')}`;
+                               return <option key={mk} value={mk}>{m} 2025</option>
+                            })}
+                         </select>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 p-8 rounded-3xl shadow-sm flex flex-col justify-center">
+                         <p className="text-amber-800 dark:text-amber-300 font-bold font-sans uppercase tracking-wide text-sm mb-2">Total Responses ({overviewMonth === 'all' ? '2025' : overviewMonth})</p>
+                         <div className="flex items-baseline gap-4 mt-2">
+                            <p className="text-4xl sm:text-5xl lg:text-6xl font-black text-amber-900 dark:text-amber-100 font-sans truncate">{displayCensus}</p>
+                         </div>
+                         <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-4 tracking-wide leading-relaxed">Auto-calculated from raw rows.</p>
+                      </div>
+                      <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800/50 p-8 rounded-3xl shadow-sm flex flex-col justify-center relative group">
+                         <p className="text-indigo-800 dark:text-indigo-300 font-bold font-sans uppercase tracking-wide text-sm mb-2">Satisfaction Rate ({overviewMonth === 'all' ? '2025' : overviewMonth})</p>
+                         <div className="flex items-baseline gap-4 mt-2">
+                            <p className="text-4xl sm:text-5xl lg:text-6xl font-black text-indigo-900 dark:text-indigo-100 font-sans truncate">{displaySat}%</p>
+                         </div>
+                         <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 mt-6 uppercase tracking-widest">Translated from legacy 4-point scale.</p>
+                      </div>
+                   </div>
+
+                   <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem] shadow-sm">
+                      <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><BarChart3 className="w-8 h-8 text-amber-500" /> 2025 Survey Volume</h3>
+                      <div className="flex items-end justify-between gap-1 sm:gap-4 h-[400px] sm:h-[500px] border-b-4 border-slate-100 dark:border-slate-700 pb-2 relative">
+                         {ALL_MONTHS_LABELS.map((label, index) => {
+                            const mk = `2025-${String(index+1).padStart(2,'0')}`;
+                            const count = analytics2025.months[mk]?.count || 0;
+                            const isCurrent = mk === overviewMonth;
+                            // For visual height scaling, find the max month
+                            const maxVol = Math.max(...Object.values(analytics2025.months).map(m=>m.count), 1);
+                            const heightPct = (count / maxVol) * 100;
+                            
+                            return (
+                               <div key={mk} className="flex flex-col items-center flex-1 h-full justify-end">
+                                  <div className={`flex flex-col items-center mb-3`}>
+                                     <span className={`text-base sm:text-xl font-black ${isCurrent ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'}`}>{count === 0 ? '-' : count}</span>
+                                  </div>
+                                  <div className={`w-full max-w-[4rem] rounded-t-xl transition-all duration-1000 ${isCurrent ? 'bg-gradient-to-t from-amber-500 to-amber-400 shadow-lg' : 'bg-slate-300 dark:bg-slate-600'}`} style={{ height: `${heightPct}%`, minHeight: count > 0 ? '5%' : '4px' }}></div>
+                                  <div className={`text-xs sm:text-sm font-black mt-4 uppercase tracking-widest ${isCurrent ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>{label}</div>
+                               </div>
+                            )
+                         })}
+                      </div>
+                   </div>
+                   
+                   {/* Legacy Insights */}
+                   {isAdmin && (
+                      <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem]">
+                         <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-6 font-serif">2025 General Insights (Full Year)</h3>
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+                               <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-6 h-10 line-clamp-2 leading-relaxed">Visited or admitted to another hospital?</p>
+                               <div className="flex items-center justify-between">
+                                 <div className="relative w-20 h-20 shrink-0">
+                                   <div className="absolute inset-0 flex items-center justify-center flex-col bg-slate-50 dark:bg-slate-700 rounded-full border-4 border-amber-500">
+                                     <span className="text-lg font-black text-slate-700 dark:text-slate-200">Yes</span>
+                                   </div>
+                                 </div>
+                                 <div className="text-right flex-1 ml-4">
+                                   <div className="flex items-center justify-end gap-2 mb-2"><span className="text-lg font-black text-amber-600 dark:text-amber-400">{analytics2025.insightCounts.q1.Yes}</span><span className="text-xs font-bold text-slate-500 uppercase">Yes</span></div>
+                                   <div className="flex items-center justify-end gap-2 mb-3"><span className="text-lg font-black text-slate-500">{analytics2025.insightCounts.q1.No}</span><span className="text-xs font-bold text-slate-500 uppercase">No</span></div>
+                                 </div>
+                               </div>
+                            </div>
+                            
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+                               <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-6 h-10 line-clamp-2 leading-relaxed">Compare to other hospitals?</p>
+                               <div className="flex items-center justify-between">
+                                 <div className="relative w-20 h-20 shrink-0">
+                                   <div className="absolute inset-0 flex items-center justify-center flex-col bg-slate-50 dark:bg-slate-700 rounded-full border-4 border-blue-500">
+                                     <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 text-center leading-tight">Superior</span>
+                                   </div>
+                                 </div>
+                                 <div className="text-right flex-1 ml-4">
+                                   <div className="flex items-center justify-end gap-2 mb-1"><span className="text-base font-black text-blue-600 dark:text-blue-400">{analytics2025.insightCounts.q2.Superior}</span><span className="text-[10px] font-bold text-slate-500 uppercase">Sup</span></div>
+                                   <div className="flex items-center justify-end gap-2 mb-1"><span className="text-base font-black text-slate-500">{analytics2025.insightCounts.q2['At Par']}</span><span className="text-[10px] font-bold text-slate-500 uppercase">Par</span></div>
+                                   <div className="flex items-center justify-end gap-2"><span className="text-base font-black text-red-500">{analytics2025.insightCounts.q2.Inferior}</span><span className="text-[10px] font-bold text-slate-500 uppercase">Inf</span></div>
+                                 </div>
+                               </div>
+                            </div>
+
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+                               <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-6 h-10 line-clamp-2 leading-relaxed">Receive health tips?</p>
+                               <div className="flex items-center justify-between">
+                                 <div className="relative w-20 h-20 shrink-0">
+                                   <div className="absolute inset-0 flex items-center justify-center flex-col bg-slate-50 dark:bg-slate-700 rounded-full border-4 border-green-500">
+                                     <span className="text-lg font-black text-slate-700 dark:text-slate-200">Yes</span>
+                                   </div>
+                                 </div>
+                                 <div className="text-right flex-1 ml-4">
+                                   <div className="flex items-center justify-end gap-2 mb-2"><span className="text-lg font-black text-green-600 dark:text-green-400">{analytics2025.insightCounts.q3.Yes}</span><span className="text-xs font-bold text-slate-500 uppercase">Yes</span></div>
+                                   <div className="flex items-center justify-end gap-2 mb-3"><span className="text-lg font-black text-slate-500">{analytics2025.insightCounts.q3.No}</span><span className="text-xs font-bold text-slate-500 uppercase">No</span></div>
+                                 </div>
+                               </div>
+                            </div>
+
+                         </div>
+                      </div>
+                   )}
+                </div>
+             )}
+
+             {/* SUB-TAB 2: RAW FEEDBACK MASTERLIST */}
+             {vaultTab === 'native_feedback' && (
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4">
+                   <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                      <div>
+                         <h3 className="font-black text-2xl text-slate-800 dark:text-white font-serif uppercase tracking-widest">2025 Raw Comments</h3>
+                         <p className="text-amber-600 dark:text-amber-400 font-bold text-sm tracking-widest uppercase mt-1">Extracted from Column 56</p>
+                      </div>
+                   </div>
+                   <div className="overflow-x-auto custom-scrollbar max-h-[600px] overflow-y-auto">
+                      <table className="w-full text-left min-w-[800px]">
+                         <thead className="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider text-xs border-b-2 border-slate-200 dark:border-slate-700 sticky top-0 z-10 shadow-sm">
+                            <tr>
+                               <th className="p-5 w-40 border-r border-slate-100 dark:border-slate-700">Date</th>
+                               <th className="p-5 w-48 border-r border-slate-100 dark:border-slate-700">Patient Name</th>
+                               <th className="p-5">Comments / Suggestions</th>
+                            </tr>
+                         </thead>
+                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-800 dark:text-slate-200 font-medium">
+                            {analytics2025.comments.map(c => (
+                               <tr key={c.id} className="hover:bg-amber-50 dark:hover:bg-slate-700/50 transition-colors">
+                                  <td className="p-5 border-r border-slate-100 dark:border-slate-700 text-sm whitespace-nowrap align-top">
+                                     {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
+                                  </td>
+                                  <td className="p-5 border-r border-slate-100 dark:border-slate-700 font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 align-top">
+                                     {c.name}
+                                  </td>
+                                  <td className="p-5 italic leading-relaxed text-slate-700 dark:text-slate-300 min-w-[300px] align-top">
+                                     "{c.text}"
+                                  </td>
+                               </tr>
+                            ))}
+                            {analytics2025.comments.length === 0 && (
+                               <tr><td colSpan="3" className="p-10 text-center text-slate-400 italic">No comments found in the 2025 data extract.</td></tr>
+                            )}
+                         </tbody>
+                      </table>
+                   </div>
+                </div>
+             )}
+
+             {/* SUB-TAB 3: OFFICIAL GOOGLE DOCS LINKS (EMBEDDED) */}
+             {vaultTab === 'official_docs' && (
+                <div className="animate-in fade-in slide-in-from-bottom-4">
+                   {!myLinks ? (
+                       <div className="bg-slate-50 dark:bg-slate-900/50 p-12 rounded-[2rem] border border-slate-200 dark:border-slate-700 text-center">
+                          <Database className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                          <h4 className="text-xl font-black text-slate-600 dark:text-slate-400">No Official Archive Found</h4>
+                          <p className="text-slate-500 mt-2">There are no legacy 2025 Google Docs mapped to this specific view.</p>
+                       </div>
+                   ) : (
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          
+                          {myLinks['All Comments Link'] && (
+                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-blue-400 transition-colors">
+                                <div>
+                                   <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-blue-200 dark:border-slate-600"><MessageSquare className="w-7 h-7" /></div>
+                                   <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Compiled Masterlist</h4>
+                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Access the unfiltered master document of patient comments from 2025.</p>
+                                </div>
+                                <button onClick={() => setIframeUrl(myLinks['All Comments Link'])} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 shadow-md">
+                                   View Document <Maximize2 className="w-4 h-4" />
+                                </button>
+                             </div>
+                          )}
+
+                          {myLinks['Links for the Comments Compilation'] && (
+                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-blue-400 transition-colors">
+                                <div>
+                                   <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-blue-200 dark:border-slate-600"><MessageSquare className="w-7 h-7" /></div>
+                                   <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Dept Patient Comments</h4>
+                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">View the raw, unfiltered patient feedback specifically submitted for your department during 2025.</p>
+                                </div>
+                                <button onClick={() => setIframeUrl(myLinks['Links for the Comments Compilation'])} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 shadow-md">
+                                   View Document <Maximize2 className="w-4 h-4" />
+                                </button>
+                             </div>
+                          )}
+
+                          {myLinks['Links for the Status Reports Compilation'] && (
+                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-amber-400 transition-colors">
+                                <div>
+                                   <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-amber-200 dark:border-slate-600"><ClipboardCheck className="w-7 h-7" /></div>
+                                   <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Dept CQI Reports</h4>
+                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Review your official, submitted Action and Evaluation reports logged for the 2025 year.</p>
+                                </div>
+                                <button onClick={() => setIframeUrl(myLinks['Links for the Status Reports Compilation'])} className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 shadow-md">
+                                   View Document <Maximize2 className="w-4 h-4" />
+                                </button>
+                             </div>
+                          )}
+
+                          {myLinks['Monthly Census Link'] && (
+                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-indigo-400 transition-colors">
+                                <div>
+                                   <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-indigo-200 dark:border-slate-600"><BarChart3 className="w-7 h-7" /></div>
+                                   <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Monthly Census Report</h4>
+                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Review the official monthly breakdown, tallies, and analytics charts generated for 2025.</p>
+                                </div>
+                                <button onClick={() => setIframeUrl(myLinks['Monthly Census Link'])} className="w-full bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white dark:bg-slate-700 dark:text-white dark:hover:bg-indigo-600 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 border border-indigo-200 dark:border-slate-600">
+                                   View Document <Maximize2 className="w-4 h-4" />
+                                </button>
+                             </div>
+                          )}
+
+                          {myLinks['Yearly Census Link'] && (
+                             <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-purple-400 transition-colors">
+                                <div>
+                                   <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mb-6 shadow-inner border border-purple-200 dark:border-slate-600"><CalendarDays className="w-7 h-7" /></div>
+                                   <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2 font-serif">Yearly Census Report</h4>
+                                   <p className="text-slate-600 dark:text-slate-400 font-medium mb-8 text-sm">Access the finalized, comprehensive year-end statistical report document for 2025.</p>
+                                </div>
+                                <button onClick={() => setIframeUrl(myLinks['Yearly Census Link'])} className="w-full bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white dark:bg-slate-700 dark:text-white dark:hover:bg-purple-600 py-4 rounded-xl font-black text-center transition-all flex items-center justify-center gap-2 border border-purple-200 dark:border-slate-600">
+                                   View Document <Maximize2 className="w-4 h-4" />
+                                </button>
+                             </div>
+                          )}
+
+                       </div>
+                   )}
+                </div>
+             )}
+          </div>
+       )
     }
 
     function DrillDownModal({ drillDown, setDrillDown }) {
