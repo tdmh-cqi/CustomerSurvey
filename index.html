@@ -420,6 +420,16 @@
             .pro-font { font-family: 'Lora', serif; }
             .hide-scrollbar::-webkit-scrollbar { display: none; }
             .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+            /* --- RESPONSIVE / OVERFLOW SAFETY NET (mobile & tablet) ---
+               Prevents content from spilling past the viewport width and
+               overlapping fixed elements (theme toggle, footer label, etc.)
+               on narrow screens. Purely a containment fix -- no layout,
+               spacing, or visual design changes. */
+            html, body { max-width: 100%; overflow-x: hidden; }
+            #root { overflow-x: hidden; }
+            body, input, textarea, select { overflow-wrap: break-word; word-break: break-word; }
+            img { max-width: 100%; }
             
             .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
             .custom-scrollbar::-webkit-scrollbar-track { background: transparent; border-radius: 8px; }
@@ -451,6 +461,7 @@
                 print-color-adjust: exact !important; 
                 margin: 0; padding: 0; width: 100% !important; height: auto !important;
                 background: white !important; color: black !important;
+                overflow: visible !important;
               }
               
               header, button, .fixed.bottom-3, .fixed.inset-0.z-0, .no-print { display: none !important; }
@@ -470,11 +481,12 @@
                  max-width: none !important;
               }
               
-              table { width: 100% !important; border-collapse: collapse !important; table-layout: auto !important; margin-bottom: 20px !important; }
+              table { width: 100% !important; min-width: 0 !important; border-collapse: collapse !important; table-layout: auto !important; margin-bottom: 20px !important; }
               tr { page-break-inside: avoid !important; }
               td, th { 
                   white-space: normal !important; 
                   word-wrap: break-word !important; 
+                  overflow-wrap: break-word !important;
                   border: 1.5px solid #64748b !important;
                   color: black !important; 
               }
@@ -1063,7 +1075,7 @@
                         </div>
                      ) : (
                         <div className="overflow-x-auto custom-scrollbar">
-                           <table className="w-full text-left min-w-[600px]">
+                           <table className="w-full text-left min-w-[600px] print:min-w-0 print:w-full">
                               <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700">
                                  <tr>
                                     <th className="p-5">Date & Time Submitted</th>
@@ -1433,7 +1445,14 @@
       const selectedMonthData = monthlyData.find(m => m.key === selectedMonth) || { comments: [], label: '', pct: 0, count: 0 };
       const selectedOverviewData = monthlyData.find(m => m.key === overviewMonth) || { pct: 0, count: 0, label: 'N/A' };
       
-      const sortedComments = [...selectedMonthData.comments].sort((a,b) => new Date(b.date) - new Date(a.date));
+      // NOTE: memoized on `selectedMonthData` (a stable object reference coming out of the
+      // memoized `monthlyData` array) instead of being recomputed as a brand-new array on
+      // every render. Previously this created a new array reference on every keystroke,
+      // which retriggered the effect below and wiped out whatever the department head had
+      // just typed into the Action/Evaluation textareas.
+      const sortedComments = useMemo(() => {
+        return [...selectedMonthData.comments].sort((a,b) => new Date(b.date) - new Date(a.date));
+      }, [selectedMonthData]);
 
       const [reportData, setReportData] = useState([]);
       const [isSendingReport, setIsSendingReport] = useState(false);
@@ -1724,7 +1743,7 @@
                     ) : (
                        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors print:border-0 print:shadow-none print:rounded-none">
                           <div className="overflow-x-auto custom-scrollbar">
-                             <table className="w-full text-left min-w-[1000px]">
+                             <table className="w-full text-left min-w-[1000px] print:min-w-0 print:w-full">
                                 <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700">
                                    <tr>
                                       <th className="p-5 w-20">Case</th>
