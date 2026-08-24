@@ -1,4 +1,4 @@
-<!DOCTYPEhtml>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -9,10 +9,8 @@
   
   <title>TDMH Patient Satisfaction Survey</title>
   
-  <!-- Tailwind CSS for Styling -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Configure Tailwind for Dark Mode via Class -->
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -22,10 +20,8 @@
     }
   </script>
 
-  <!-- Babel to compile React JSX in the browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
-  <!-- Import Maps to load React and Lucide Icons directly in the browser -->
   <script type="importmap">
     {
       "imports": {
@@ -52,16 +48,13 @@
       Eye, EyeOff, ExternalLink, Database, Maximize2
     } from 'lucide-react';
 
-    // --- CONFIGURATION & EXTERNAL ASSETS ---
     const FORM_CONTROL_NO = "TDMH-CQI-F-001-4-0";
     const GITHUB_BASE_URL = "https://raw.githubusercontent.com/tdmh-cqi/CustomerSurvey/main/images";
     const LOGO_URL = `${GITHUB_BASE_URL}/tdmh-logo.png`;
     const BACKGROUND_URL = `${GITHUB_BASE_URL}/tdmh-background.jpg`;
 
-    // APPS SCRIPT WEB APP URL (Make sure this matches your latest deployed URL)
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw93n00Ey6NoG92Nvcli_uAzeDINXBOL_i6El6txQvoYEp4pLFlQ5BSyxKUqUiI2DUCiQ/exec"; 
 
-    // DEFAULT DEPARTMENTS
     const DEFAULT_DEPARTMENTS = [
       { id: 'admitting', title: 'Admitting Services', type: 'standard', questions: [{ id: 'adm_1', text: 'How was your experience with the Admitting Services and the staff(s)?' }] },
       { id: 'er', title: 'Emergency Room Services', type: 'standard', questions: [{ id: 'er_1', text: 'How was your experience with the E.R Services and the staff(s)?' }] },
@@ -106,7 +99,6 @@
     };
     const ALL_MONTHS_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     
-    // DYNAMIC FLATTENER
     const getFlatDepartments = (depts) => {
         let flat = [];
         depts.forEach(d => {
@@ -134,7 +126,6 @@
       const [confirmSync, setConfirmSync] = useState(false);
       const [loginMode, setLoginMode] = useState(null);
 
-      // --- IN-APP IFRAME DOCUMENT VIEWER STATE ---
       const [iframeUrl, setIframeUrl] = useState(null);
 
       const [authUser, setAuthUser] = useState(() => {
@@ -174,7 +165,6 @@
         }
       }, [isDark]);
 
-      // --- GLOBAL BODY SCROLL LOCK ---
       useEffect(() => {
         if (drillDown || showSuccess || iframeUrl || confirmSync) {
           document.body.style.overflow = 'hidden';
@@ -251,7 +241,6 @@
       useEffect(() => {
         if (!APPS_SCRIPT_URL) return;
         
-        // Background fetches for Legacy Vaults
         fetch(`${APPS_SCRIPT_URL}?action=get_legacy_2025`)
           .then(res => res.json())
           .then(data => setLegacy2025(data))
@@ -418,11 +407,8 @@
             .hide-scrollbar::-webkit-scrollbar { display: none; }
             .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-            /* --- RESPONSIVE / OVERFLOW SAFETY NET --- */
             html, body { max-width: 100%; overflow-x: hidden; }
             #root { overflow-x: hidden; }
-            body, input, textarea, select { overflow-wrap: break-word; word-break: break-word; }
-            img { max-width: 100%; }
             
             .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
             .custom-scrollbar::-webkit-scrollbar-track { background: transparent; border-radius: 8px; }
@@ -447,8 +433,9 @@
               100% { clip-path: circle(150% at 100% 0%); }
             }
 
+            /* --- FIXED PRINT LAYOUT --- */
             @media print {
-              @page { size: auto; margin: 10mm; }
+              @page { size: landscape; margin: 10mm; }
               html, body { 
                 -webkit-print-color-adjust: exact !important; 
                 print-color-adjust: exact !important; 
@@ -459,7 +446,8 @@
               
               header, button, .fixed.bottom-3, .fixed.inset-0.z-0, .no-print { display: none !important; }
               
-              .custom-scrollbar, .overflow-x-auto, .overflow-y-auto, .overflow-hidden, .max-h-[600px], .max-h-[90vh], .print-modal-content {
+              /* Ensure containers allow full expansion */
+              .custom-scrollbar, .overflow-x-auto, .overflow-y-auto, .overflow-hidden, .max-h-[600px], .max-h-[90vh], .print-modal-content, .report-table-wrapper {
                  overflow: visible !important;
                  max-height: none !important;
                  height: auto !important;
@@ -473,36 +461,46 @@
                  max-width: none !important;
               }
               
-              table { width: 100% !important; min-width: 0 !important; border-collapse: collapse !important; table-layout: auto !important; margin-bottom: 20px !important; }
-              tr { page-break-inside: avoid !important; }
+              /* Restoring proper table behavior for reports */
+              table { 
+                  width: 100% !important; 
+                  border-collapse: collapse !important; 
+                  table-layout: auto !important; 
+                  margin-bottom: 20px !important; 
+                  page-break-inside: auto !important;
+              }
+              tr { page-break-inside: avoid !important; page-break-after: auto !important; }
+              thead { display: table-header-group !important; }
+              tfoot { display: table-footer-group !important; }
+              
               td, th { 
                   white-space: normal !important; 
                   word-wrap: break-word !important; 
                   overflow-wrap: break-word !important;
-                  border: 1.5px solid #64748b !important;
+                  border: 1px solid #94a3b8 !important;
+                  padding: 8px !important;
                   color: black !important; 
               }
-              thead th { background-color: #f1f5f9 !important; color: black !important; }
+              
+              /* PREVENT SQUISHING ON HEADERS */
+              th { background-color: #f1f5f9 !important; white-space: nowrap !important; }
               
               .print\:border-0 { border: none !important; }
               .print\:shadow-none { box-shadow: none !important; }
               .print\:rounded-none { border-radius: 0 !important; }
               
               body.printing-qr { background-color: white !important; overflow: hidden !important; }
-              
               body.printing-qr #root, body.printing-qr main { 
                   max-width: none !important; width: 100vw !important; height: 100vh !important; 
                   margin: 0 !important; padding: 0 !important; display: flex !important; 
                   align-items: center !important; justify-content: center !important; 
               }
-              
               .print-qr-poster {
                   position: absolute !important; top: 0 !important; left: 0 !important;
                   width: 100vw !important; height: 100vh !important;
                   display: flex !important; align-items: center !important; justify-content: center !important;
                   margin: 0 !important; padding: 0 !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; background: transparent !important;
               }
-              
               .print-qr-card-wrapper {
                   transform: scale(0.85); transform-origin: center center;
                   width: 100%; display: flex; justify-content: center;
@@ -530,7 +528,6 @@
              </div>
           )}
 
-          {/* IN-APP IFRAME DOCUMENT VIEWER */}
           {iframeUrl && (
              <div className="fixed inset-0 z-[120] bg-slate-900/90 backdrop-blur-sm flex flex-col p-4 animate-in fade-in duration-300 no-print font-sans">
                 <div className="flex justify-between items-center mb-4 bg-white/10 p-4 rounded-2xl backdrop-blur-md">
@@ -656,21 +653,16 @@
       const liveDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       const currentMonthKey = getMonthString(new Date());
 
-      // State for month filtering on the overview tab
       const [overviewMonth, setOverviewMonth] = useState(currentMonthKey);
 
-      // Fix: Strictly manage draftCensus updates so it doesn't overwrite manually typed text incorrectly,
-      // but correctly resets when the viewed month is changed by the user.
       const [draftCensus, setDraftCensus] = useState(censusData[overviewMonth] || '');
       const prevOverviewMonth = useRef(overviewMonth);
       
       useEffect(() => {
           if (prevOverviewMonth.current !== overviewMonth) {
-              // Forced update if user switches month
               setDraftCensus(censusData[overviewMonth] || '');
               prevOverviewMonth.current = overviewMonth;
           } else {
-              // Only update if background sync gives us data while input is empty
               setDraftCensus(prev => prev === '' || prev == 0 ? (censusData[overviewMonth] || '') : prev);
           }
       }, [censusData, overviewMonth]);
@@ -720,7 +712,6 @@
         let responsesThisMonthCount = 0;
         const allCommentsArray = [];
 
-        // Filter responses specifically for the selected overviewMonth
         const todaysResponses = responses.filter(r => {
            if(!r || !r.timestamp) return false;
            return getMonthString(new Date(r.timestamp)) === overviewMonth;
@@ -735,7 +726,7 @@
         responses.forEach(res => {
           if (!res || !res.timestamp) return;
           const resMonth = getMonthString(new Date(res.timestamp));
-          if (resMonth === currentMonthKey) responsesThisMonthCount++; // Keeps global tally intact
+          if (resMonth === currentMonthKey) responsesThisMonthCount++; 
 
           if (monthlyResponsesTally[resMonth] !== undefined) {
              monthlyResponsesTally[resMonth]++;
@@ -814,7 +805,6 @@
 
         const maxResponsesMonthly = Math.max(...Object.values(monthlyResponsesTally), 1); 
         
-        // Specific Month's Satisfaction
         const mSat = monthlySatData[overviewMonth];
         const overviewSatPct = mSat && mSat.max > 0 ? Math.min(Math.round((mSat.score / mSat.max) * 100), 100) : 0;
 
@@ -908,7 +898,6 @@
 
           <div className="p-4 sm:p-10">
             
-            {/* 1. OVERVIEW TAB */}
             {activeTab === 'overview' && (
               <div className="space-y-8 animate-in slide-in-from-bottom-2">
                 
@@ -981,7 +970,7 @@
 
                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem] shadow-sm">
                   <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><BarChart3 className="w-8 h-8 text-blue-600 dark:text-blue-400" /> Survey Volume (Response Rate %)</h3>
-                  <div className="flex items-end justify-between gap-1 sm:gap-4 h-[400px] sm:h-[500px] border-b-4 border-slate-100 dark:border-slate-700 pb-2 relative">
+                  <div className="flex items-end justify-between gap-2 sm:gap-4 h-[400px] sm:h-[500px] border-b-4 border-slate-100 dark:border-slate-700 pb-2 relative">
                      {analytics.allMonthsKeys.map((mk, index) => {
                         const count = analytics.monthlyResponsesTally[mk];
                         const mCensus = parseInt(censusData[mk]) || 0;
@@ -990,22 +979,22 @@
                         const isCurrent = mk === overviewMonth;
                         
                         return (
-                           <div key={mk} className="flex flex-col items-center flex-1 h-full justify-end">
-                              <div className={`flex flex-col items-center mb-3`}>
+                           <div key={mk} className="flex flex-col items-center flex-1 h-full justify-end min-w-[20px]">
+                              <div className={`flex flex-col items-center mb-3 text-center`}>
                                  {mCensus > 0 ? (
                                    <>
-                                     <span className={`text-base sm:text-xl font-black ${isCurrent ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>{count === 0 ? '-' : rate + '%'}</span>
-                                     <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full mt-1 ${isCurrent ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>Vol: {count}</span>
+                                     <span className={`text-sm sm:text-xl font-black ${isCurrent ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>{count === 0 ? '-' : rate + '%'}</span>
+                                     <span className={`text-[9px] sm:text-xs font-bold px-1 sm:px-2 py-0.5 rounded-full mt-1 ${isCurrent ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'} whitespace-nowrap`}>Vol: {count}</span>
                                    </>
                                  ) : (
                                    <>
-                                     <span className={`text-base sm:text-xl font-black ${isCurrent ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>{count === 0 ? '-' : count}</span>
-                                     <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full mt-1 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400`}>No Census</span>
+                                     <span className={`text-sm sm:text-xl font-black ${isCurrent ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}>{count === 0 ? '-' : count}</span>
+                                     <span className={`text-[9px] sm:text-xs font-bold px-1 sm:px-2 py-0.5 rounded-full mt-1 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 whitespace-nowrap`}>No Census</span>
                                    </>
                                  )}
                               </div>
                               <div className={`w-full max-w-[4rem] rounded-t-xl transition-all duration-1000 ${isCurrent ? 'bg-gradient-to-t from-indigo-500 to-indigo-400 shadow-lg' : 'bg-blue-400 dark:bg-blue-500'}`} style={{ height: `${heightPct}%`, minHeight: count > 0 ? '5%' : '4px' }}></div>
-                              <div className={`text-xs sm:text-sm font-black mt-4 uppercase tracking-widest ${isCurrent ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}>{ALL_MONTHS_LABELS[index]}</div>
+                              <div className={`text-[10px] sm:text-sm font-black mt-4 uppercase tracking-widest ${isCurrent ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}>{ALL_MONTHS_LABELS[index]}</div>
                            </div>
                         )
                      })}
@@ -1059,7 +1048,6 @@
               </div>
             )}
 
-            {/* 1.5 MONITORING TAB */}
             {activeTab === 'monitoring' && (
                <div className="space-y-6 animate-in slide-in-from-bottom-2">
                   <div className="flex justify-between items-center mb-6">
@@ -1069,27 +1057,27 @@
                      </div>
                   </div>
 
-                  <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden print:border-0 print:shadow-none print:rounded-none">
+                  <div className="bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                      {analytics.todaysResponses.length === 0 ? (
                         <div className="p-10 text-center text-slate-400 dark:text-slate-500 font-bold">
                            <Clock className="w-12 h-12 mx-auto mb-4 opacity-30" />
                            No surveys have been submitted for {overviewMonth}.
                         </div>
                      ) : (
-                        <div className="overflow-x-auto custom-scrollbar">
-                           <table className="w-full text-left min-w-[600px] print:min-w-0 print:w-full">
+                        <div className="overflow-x-auto custom-scrollbar report-table-wrapper">
+                           <table className="w-full text-left min-w-[800px]">
                               <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700">
                                  <tr>
-                                    <th className="p-5">Date & Time Submitted</th>
-                                    <th className="p-5">Patient Name</th>
-                                    <th className="p-5">Room / Ward</th>
-                                    <th className="p-5 text-right">Status</th>
+                                    <th className="p-5 whitespace-nowrap">Date & Time Submitted</th>
+                                    <th className="p-5 whitespace-nowrap">Patient Name</th>
+                                    <th className="p-5 whitespace-nowrap">Room / Ward</th>
+                                    <th className="p-5 text-right whitespace-nowrap">Status</th>
                                  </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200">
                                  {analytics.todaysResponses.map(r => (
                                     <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                       <td className="p-5 text-sm font-medium">
+                                       <td className="p-5 text-sm font-medium whitespace-nowrap">
                                           {isNaN(new Date(r.timestamp).getTime()) ? r.timestamp : (
                                               <>
                                                 {new Date(r.timestamp).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} at {new Date(r.timestamp).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}
@@ -1097,8 +1085,8 @@
                                           )}
                                        </td>
                                        <td className="p-5 font-black text-lg">{r.general?.patient_name || 'Anonymous'}</td>
-                                       <td className="p-5 font-medium bg-slate-50 dark:bg-slate-900/50">{r.general?.room_number || 'N/A'}</td>
-                                       <td className="p-5 text-right"><span className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/50 px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest inline-flex items-center gap-2"><Check className="w-3 h-3"/> Complete</span></td>
+                                       <td className="p-5 font-medium bg-slate-50 dark:bg-slate-900/50 whitespace-nowrap">{r.general?.room_number || 'N/A'}</td>
+                                       <td className="p-5 text-right whitespace-nowrap"><span className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/50 px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest inline-flex items-center gap-2"><Check className="w-3 h-3"/> Complete</span></td>
                                     </tr>
                                  ))}
                               </tbody>
@@ -1109,7 +1097,6 @@
                </div>
             )}
 
-            {/* 2. MONTHLY COMPARATIVE REPORT TAB */}
             {activeTab === 'monthly report' && (
                <div className="space-y-8 animate-in slide-in-from-bottom-2">
                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
@@ -1124,30 +1111,30 @@
                    <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 shadow-md no-print font-sans"><Printer className="w-5 h-5" /> Print Table</button>
                  </div>
 
-                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm overflow-hidden flex flex-col transition-colors print:border-0 print:shadow-none print:rounded-none">
-                   <div className="overflow-x-auto custom-scrollbar pb-2 print:overflow-visible">
-                     <table className="w-full text-left border-collapse min-w-[1200px] print:min-w-0 print:w-full">
+                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm overflow-hidden flex flex-col transition-colors">
+                   <div className="overflow-x-auto custom-scrollbar pb-2 report-table-wrapper">
+                     <table className="w-full text-left border-collapse min-w-[1200px]">
                        <thead>
-                         <tr className="bg-slate-900 dark:bg-slate-950 text-white font-bold text-sm tracking-wide uppercase print:text-[8px] print:bg-transparent print:text-black">
-                           <th className="p-5 print:p-1 border-b border-slate-700 print:border-slate-300 sticky left-0 bg-slate-900 dark:bg-slate-950 print:bg-transparent z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.5)] print:shadow-none w-64 print:w-auto">Department Name</th>
-                           {ALL_MONTHS_LABELS.map(label => <th key={label} className="p-5 print:p-1 border-b border-slate-700 print:border-slate-300 text-center w-24 print:w-auto">{label}</th>)}
+                         <tr className="bg-slate-900 dark:bg-slate-950 text-white font-bold text-sm tracking-wide uppercase">
+                           <th className="p-5 border-b border-slate-700 sticky left-0 bg-slate-900 dark:bg-slate-950 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.5)] w-64 whitespace-nowrap">Department Name</th>
+                           {ALL_MONTHS_LABELS.map(label => <th key={label} className="p-5 border-b border-slate-700 text-center w-24 whitespace-nowrap">{label}</th>)}
                          </tr>
                        </thead>
-                       <tbody className="text-sm font-medium print:text-[9px]">
+                       <tbody className="text-sm font-medium">
                          {analytics.fullYearDeptData.map((dept, index) => (
-                           <tr key={dept.id} className={`group transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-slate-800 print:bg-transparent' : 'bg-slate-50 dark:bg-slate-800/60 print:bg-transparent'} hover:bg-blue-50/50 dark:hover:bg-blue-900/20`}>
-                             <td className={`p-5 print:p-1 sticky left-0 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] print:shadow-none transition-colors ${dept.isSub ? 'pl-10 print:pl-4 text-slate-600 dark:text-slate-300 print:text-slate-600' : 'font-bold text-slate-800 dark:text-white print:text-black'} ${index % 2 === 0 ? 'bg-white dark:bg-slate-800 print:bg-transparent group-hover:bg-blue-50 dark:group-hover:bg-slate-700' : 'bg-slate-50 dark:bg-slate-800 print:bg-transparent group-hover:bg-blue-50 dark:group-hover:bg-slate-700'}`}>
-                                {dept.isSub && <span className="text-slate-400 dark:text-slate-500 print:text-slate-400 mr-2">↳</span>}
+                           <tr key={dept.id} className={`group transition-colors ${index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/60'} hover:bg-blue-50/50 dark:hover:bg-blue-900/20`}>
+                             <td className={`p-5 sticky left-0 z-10 shadow-[4px_0_10px_-4px_rgba(0,0,0,0.1)] transition-colors ${dept.isSub ? 'pl-10 text-slate-600 dark:text-slate-300' : 'font-bold text-slate-800 dark:text-white'} ${index % 2 === 0 ? 'bg-white dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700' : 'bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-slate-700'}`}>
+                                {dept.isSub && <span className="text-slate-400 dark:text-slate-500 mr-2">↳</span>}
                                 {dept.title}
                              </td>
                              {dept.monthlyAverages.map((satPct, i) => {
                                 const isDash = satPct === '-';
-                                const colorClass = isDash ? 'text-slate-300 dark:text-slate-600 print:text-slate-400 font-normal' : satPct < 66 ? 'text-red-600 dark:text-red-400 bg-red-50/30 dark:bg-red-900/10 print:bg-transparent print:text-black' : 'text-blue-700 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/10 print:bg-transparent print:text-black';
+                                const colorClass = isDash ? 'text-slate-300 dark:text-slate-600 font-normal' : satPct < 66 ? 'text-red-600 dark:text-red-400 bg-red-50/30 dark:bg-red-900/10' : 'text-blue-700 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/10';
                                 
                                 return (
-                                  <td key={i} className={`p-4 print:p-1 text-center ${colorClass}`}>
+                                  <td key={i} className={`p-4 text-center ${colorClass}`}>
                                      {isDash ? '-' : (
-                                       <span className="font-black text-lg print:text-[9px]">{satPct}%</span>
+                                       <span className="font-black text-lg">{satPct}%</span>
                                      )}
                                   </td>
                                 )
@@ -1161,7 +1148,6 @@
                </div>
             )}
 
-            {/* 3. FEEDBACK MASTERLIST TAB */}
             {activeTab === 'feedback & CQI masterlist' && (
                <div className="animate-in slide-in-from-bottom-2">
                   <MasterFeedbackManager 
@@ -1178,7 +1164,6 @@
                </div>
             )}
 
-            {/* 3.5 STATUS REPORTS COMPILATION TAB */}
             {activeTab === 'status reports compilation' && (
                <div className="space-y-6 animate-in slide-in-from-bottom-2">
                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
@@ -1200,45 +1185,45 @@
                     </select>
                  </div>
 
-                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors print:border-0 print:shadow-none print:rounded-none">
-                    <div className="overflow-x-auto custom-scrollbar print:overflow-visible">
-                       <table className="w-full text-left min-w-[1000px] print:min-w-0 print:w-full print:border-collapse">
-                          <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700 print:bg-transparent print:text-black">
+                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
+                    <div className="overflow-x-auto custom-scrollbar report-table-wrapper">
+                       <table className="w-full text-left min-w-[1200px]">
+                          <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700">
                              <tr>
-                                <th className="p-5 w-40 print:p-2 print:border">Submission Date</th>
-                                <th className="p-5 w-32 print:p-2 print:border">Report Month</th>
-                                <th className="p-5 w-48 print:p-2 print:border">Department</th>
-                                <th className="p-5 print:p-2 print:border">Case / Complaint</th>
-                                <th className="p-5 print:p-2 print:border">Action Taken & Eval</th>
-                                <th className="p-5 w-48 text-center border-l border-slate-200 dark:border-slate-700 print:p-2 print:border">Status</th>
+                                <th className="p-5 min-w-[150px] whitespace-nowrap">Submission Date</th>
+                                <th className="p-5 min-w-[120px] whitespace-nowrap">Report Month</th>
+                                <th className="p-5 min-w-[200px] whitespace-nowrap">Department</th>
+                                <th className="p-5 min-w-[300px] whitespace-nowrap">Case / Complaint</th>
+                                <th className="p-5 min-w-[250px] whitespace-nowrap">Action Taken & Eval</th>
+                                <th className="p-5 min-w-[150px] text-center border-l border-slate-200 dark:border-slate-700 whitespace-nowrap">Status</th>
                              </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200 font-medium text-sm print:text-black">
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200 font-medium text-sm">
                              {filteredCqiReports.length === 0 ? (
-                                <tr><td colSpan="6" className="p-10 text-center text-slate-500 dark:text-slate-400 italic font-bold print:border">No reports have been submitted yet.</td></tr>
+                                <tr><td colSpan="6" className="p-10 text-center text-slate-500 dark:text-slate-400 italic font-bold">No reports have been submitted yet.</td></tr>
                              ) : (
                                 filteredCqiReports.map((rep, i) => {
-                                   let statusColor = "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 print:text-black print:bg-transparent";
-                                   if (rep.Status === 'Closed') statusColor = "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 print:text-black print:bg-transparent";
-                                   else if (rep.Status === 'Pending') statusColor = "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30 print:text-black print:bg-transparent";
-                                   else if (rep.Status === 'For Monitoring' || rep.Status === 'For Continuous Monitoring') statusColor = "text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 print:text-black print:bg-transparent";
+                                   let statusColor = "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800";
+                                   if (rep.Status === 'Closed') statusColor = "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30";
+                                   else if (rep.Status === 'Pending') statusColor = "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30";
+                                   else if (rep.Status === 'For Monitoring' || rep.Status === 'For Continuous Monitoring') statusColor = "text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30";
 
                                    return (
                                       <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors break-inside-avoid">
-                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 text-xs print:p-2 print:border">
+                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 text-xs">
                                             {isNaN(new Date(rep.Timestamp).getTime()) ? rep.Timestamp : new Date(rep.Timestamp).toLocaleString('en-US', {month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'})}
                                          </td>
-                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-black text-slate-800 dark:text-slate-300 print:p-2 print:border">{rep.Report_Month}</td>
-                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-bold text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400 print:p-2 print:border">{rep.Department}</td>
-                                         <td className="p-5 print:p-2 print:border">
-                                            <span className="font-bold text-slate-500 dark:text-slate-400 mr-2 text-xs">Case {rep.Case_No}:</span>
+                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-black text-slate-800 dark:text-slate-300">{rep.Report_Month}</td>
+                                         <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-bold text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">{rep.Department}</td>
+                                         <td className="p-5 break-words">
+                                            <span className="font-bold text-slate-500 dark:text-slate-400 mr-2 text-xs whitespace-nowrap">Case {rep.Case_No}:</span>
                                             <span className="italic">"{rep.Complaint}"</span>
                                          </td>
-                                         <td className="p-5 print:p-2 print:border">
+                                         <td className="p-5 break-words">
                                             <div className="text-xs mb-1"><span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Action:</span> {rep.Action_Taken || '-'}</div>
                                             <div className="text-xs"><span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Eval:</span> {rep.Evaluation || '-'}</div>
                                          </td>
-                                         <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700 print:p-2 print:border">
+                                         <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700">
                                             <span className={`px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase inline-block whitespace-nowrap border border-current ${statusColor}`}>{rep.Status}</span>
                                          </td>
                                       </tr>
@@ -1252,7 +1237,6 @@
                </div>
             )}
 
-            {/* 4. SETTINGS & EDITOR TAB */}
             {activeTab === 'question configurations' && (
                <div className="animate-in slide-in-from-bottom-2 space-y-10 no-print">
                  
@@ -1348,12 +1332,10 @@
                </div>
             )}
 
-            {/* 5. 2026 HISTORICAL VAULT TAB (ADMIN VIEW) */}
             {activeTab === '2026 historical vault' && (
                <LegacyVaultDashboard year="2026" legacyData={legacy2026} setIframeUrl={setIframeUrl} isAdmin={true} />
             )}
 
-            {/* 6. 2025 HISTORICAL VAULT TAB (ADMIN VIEW) */}
             {activeTab === '2025 historical vault' && (
                <LegacyVaultDashboard year="2025" legacyData={legacy2025} setIframeUrl={setIframeUrl} isAdmin={true} />
             )}
@@ -1376,7 +1358,6 @@
       const [overviewMonth, setOverviewMonth] = useState(currentMonthKey);
       const [selectedArchiveMonth, setSelectedArchiveMonth] = useState('all');
 
-      // The specific department we are analyzing (either a normal dept, or the selected sub-dept)
       const targetDeptId = isGrouped ? activeSubDept : deptId;
       const targetDept = flatDepartments.find(d => d.id === targetDeptId);
 
@@ -1462,7 +1443,6 @@
          const negs = sortedComments.filter(c => commentCats[c.id] === 'negative');
          setReportData(prevData => {
             return negs.map(c => {
-               // Preserve existing typed text so it doesn't wipe when the auto-sync happens
                const existingItem = prevData.find(item => item.id === c.id);
                return {
                   id: c.id,
@@ -1480,7 +1460,6 @@
       const handleReportUpdate = (index, field, value) => {
          setReportData(prev => {
             const up = [...prev];
-            // Properly clone the object to ensure React registers the keystroke without dropping characters
             up[index] = { ...up[index], [field]: value };
             return up;
          });
@@ -1650,6 +1629,7 @@
                  </div>
               )}
 
+              {}
               {activeTab === 'status reports compilation' && (
                  <div className="animate-in slide-in-from-bottom-2">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
@@ -1659,43 +1639,43 @@
                        </div>
                     </div>
 
-                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors print:border-0 print:shadow-none print:rounded-none">
-                       <div className="overflow-x-auto custom-scrollbar print:overflow-visible">
-                          <table className="w-full text-left min-w-[900px] print:min-w-0 print:w-full print:border-collapse">
-                             <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700 print:bg-transparent print:text-black">
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
+                       <div className="overflow-x-auto custom-scrollbar report-table-wrapper">
+                          <table className="w-full text-left min-w-[1200px]">
+                             <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700">
                                 <tr>
-                                   <th className="p-5 w-40 print:p-2 print:border">Submission Date</th>
-                                   <th className="p-5 w-32 print:p-2 print:border">Report Month</th>
-                                   <th className="p-5 print:p-2 print:border">Case / Complaint</th>
-                                   <th className="p-5 print:p-2 print:border">Action Taken & Eval</th>
-                                   <th className="p-5 w-48 text-center border-l border-slate-200 dark:border-slate-700 print:p-2 print:border">Status</th>
+                                   <th className="p-4 align-top min-w-[150px] whitespace-nowrap">Submission Date</th>
+                                   <th className="p-4 align-top min-w-[120px] whitespace-nowrap">Report Month</th>
+                                   <th className="p-4 align-top min-w-[300px] whitespace-nowrap">Case / Complaint</th>
+                                   <th className="p-4 align-top min-w-[300px] whitespace-nowrap">Action Taken & Eval</th>
+                                   <th className="p-4 align-top min-w-[150px] text-center border-l border-slate-200 dark:border-slate-700 whitespace-nowrap">Status</th>
                                 </tr>
                              </thead>
-                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200 font-medium text-sm print:text-black">
+                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200 font-medium text-sm">
                                 {filteredCqiReports.length === 0 ? (
-                                   <tr><td colSpan="5" className="p-10 text-center text-slate-500 dark:text-slate-400 italic font-bold print:border">No reports have been submitted yet.</td></tr>
+                                   <tr><td colSpan="5" className="p-10 text-center text-slate-500 dark:text-slate-400 italic font-bold">No reports have been submitted yet.</td></tr>
                                 ) : (
                                    filteredCqiReports.map((rep, i) => {
-                                      let statusColor = "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 print:text-black print:bg-transparent";
-                                      if (rep.Status === 'Closed') statusColor = "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 print:text-black print:bg-transparent";
-                                      else if (rep.Status === 'Pending') statusColor = "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30 print:text-black print:bg-transparent";
-                                      else if (rep.Status === 'For Monitoring' || rep.Status === 'For Continuous Monitoring') statusColor = "text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 print:text-black print:bg-transparent";
+                                      let statusColor = "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800";
+                                      if (rep.Status === 'Closed') statusColor = "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30";
+                                      else if (rep.Status === 'Pending') statusColor = "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30";
+                                      else if (rep.Status === 'For Monitoring' || rep.Status === 'For Continuous Monitoring') statusColor = "text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30";
 
                                       return (
                                          <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors break-inside-avoid">
-                                            <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 text-xs print:p-2 print:border">
+                                            <td className="p-4 align-top border-r border-slate-50 dark:border-slate-700/50 text-xs">
                                                {isNaN(new Date(rep.Timestamp).getTime()) ? rep.Timestamp : new Date(rep.Timestamp).toLocaleString('en-US', {month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'})}
                                             </td>
-                                            <td className="p-5 border-r border-slate-50 dark:border-slate-700/50 font-black text-slate-800 dark:text-slate-300 print:p-2 print:border">{rep.Report_Month}</td>
-                                            <td className="p-5 print:p-2 print:border">
-                                               <span className="font-bold text-slate-500 dark:text-slate-400 mr-2 text-xs">Case {rep.Case_No}:</span>
-                                               <span className="italic">"{rep.Complaint}"</span>
+                                            <td className="p-4 align-top border-r border-slate-50 dark:border-slate-700/50 font-black text-slate-800 dark:text-slate-300">{rep.Report_Month}</td>
+                                            <td className="p-4 align-top break-words">
+                                               <div className="font-bold text-slate-500 dark:text-slate-400 text-xs mb-1">Case {rep.Case_No}:</div>
+                                               <div className="italic text-slate-800 dark:text-slate-300 leading-relaxed">"{rep.Complaint}"</div>
                                             </td>
-                                            <td className="p-5 print:p-2 print:border">
-                                               <div className="text-xs mb-1"><span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Action:</span> {rep.Action_Taken || '-'}</div>
-                                               <div className="text-xs"><span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Eval:</span> {rep.Evaluation || '-'}</div>
+                                            <td className="p-4 align-top break-words">
+                                               <div className="mb-3"><span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-[10px] block mb-1">Action:</span> <span className="leading-relaxed">{rep.Action_Taken || '-'}</span></div>
+                                               <div><span className="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-[10px] block mb-1">Eval:</span> <span className="leading-relaxed">{rep.Evaluation || '-'}</span></div>
                                             </td>
-                                            <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700 print:p-2 print:border">
+                                            <td className="p-4 align-top text-center border-l border-slate-100 dark:border-slate-700">
                                                <span className={`px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase inline-block whitespace-nowrap border border-current ${statusColor}`}>{rep.Status}</span>
                                             </td>
                                          </tr>
@@ -1753,17 +1733,17 @@
                           <p className="text-green-700 dark:text-green-300 font-medium">Your monthly CQI Status Report has been officially logged and sent to the Master Admin.</p>
                        </div>
                     ) : (
-                       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors print:border-0 print:shadow-none print:rounded-none">
-                          <div className="overflow-x-auto custom-scrollbar">
-                             <table className="w-full text-left min-w-[1000px] print:min-w-0 print:w-full">
+                       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl overflow-hidden shadow-sm transition-colors">
+                          <div className="overflow-x-auto custom-scrollbar report-table-wrapper">
+                             <table className="w-full text-left min-w-[1000px]">
                                 <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-black uppercase tracking-wider text-xs border-b border-slate-200 dark:border-slate-700">
                                    <tr>
-                                      <th className="p-5 w-20">Case</th>
-                                      <th className="p-5 w-32">Date</th>
-                                      <th className="p-5 w-80">Complaint / Feedback</th>
-                                      <th className="p-5 min-w-[200px]">Action Taken</th>
-                                      <th className="p-5 min-w-[200px]">Evaluation</th>
-                                      <th className="p-5 w-48 text-center border-l border-slate-200 dark:border-slate-700">Status</th>
+                                      <th className="p-4 align-top w-20 whitespace-nowrap">Case</th>
+                                      <th className="p-4 align-top w-32 whitespace-nowrap">Date</th>
+                                      <th className="p-4 align-top w-80 whitespace-nowrap">Complaint / Feedback</th>
+                                      <th className="p-4 align-top min-w-[250px] whitespace-nowrap">Action Taken</th>
+                                      <th className="p-4 align-top min-w-[250px] whitespace-nowrap">Evaluation</th>
+                                      <th className="p-4 align-top w-48 text-center border-l border-slate-200 dark:border-slate-700 whitespace-nowrap">Status</th>
                                    </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-200 font-medium text-sm">
@@ -1785,16 +1765,16 @@
                                    ) : (
                                       reportData.map((rep, i) => (
                                          <tr key={rep.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                            <td className="p-5 text-center font-black text-slate-400">{i + 1}</td>
-                                            <td className="p-5 text-xs text-slate-500 dark:text-slate-400 font-bold">{rep.date}</td>
-                                            <td className="p-5 italic text-slate-800 dark:text-slate-300">"{rep.text}"</td>
-                                            <td className="p-4">
+                                            <td className="p-4 align-top text-center font-black text-slate-400">{i + 1}</td>
+                                            <td className="p-4 align-top text-xs text-slate-500 dark:text-slate-400 font-bold whitespace-nowrap">{rep.date}</td>
+                                            <td className="p-4 align-top italic text-slate-800 dark:text-slate-300 break-words">"{rep.text}"</td>
+                                            <td className="p-4 align-top">
                                                <textarea value={rep.Action} onChange={(e) => handleReportUpdate(i, 'Action', e.target.value)} className="w-full border-2 border-slate-200 dark:border-slate-600 focus:border-blue-400 rounded-xl p-3 outline-none resize-none bg-slate-50 dark:bg-slate-900 transition-colors text-sm" rows="3" placeholder="Type action taken..."></textarea>
                                             </td>
-                                            <td className="p-4">
+                                            <td className="p-4 align-top">
                                                <textarea value={rep.Eval} onChange={(e) => handleReportUpdate(i, 'Eval', e.target.value)} className="w-full border-2 border-slate-200 dark:border-slate-600 focus:border-blue-400 rounded-xl p-3 outline-none resize-none bg-slate-50 dark:bg-slate-900 transition-colors text-sm" rows="3" placeholder="Type evaluation..."></textarea>
                                             </td>
-                                            <td className="p-4 border-l border-slate-100 dark:border-slate-700">
+                                            <td className="p-4 align-top border-l border-slate-100 dark:border-slate-700">
                                                <select value={rep.Status} onChange={(e) => handleReportUpdate(i, 'Status', e.target.value)} className={`w-full p-3 rounded-xl border-2 outline-none font-bold text-sm transition-colors text-center cursor-pointer ${rep.Status === 'Closed' ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400'}`}>
                                                   <option value="Pending" className="text-slate-900 font-bold">Pending</option>
                                                   <option value="Closed" className="text-slate-900 font-bold">Closed</option>
@@ -1815,12 +1795,10 @@
                  </div>
               )}
 
-              {/* 6. 2026 HISTORICAL VAULT TAB (DEPT VIEW) */}
               {activeTab === '2026 historical vault' && (
                  <LegacyVaultDashboard year="2026" legacyData={legacy2026} setIframeUrl={setIframeUrl} isAdmin={false} targetDeptId={targetDeptId} />
               )}
 
-              {/* 7. 2025 HISTORICAL VAULT TAB (DEPT VIEW) */}
               {activeTab === '2025 historical vault' && (
                  <LegacyVaultDashboard year="2025" legacyData={legacy2025} setIframeUrl={setIframeUrl} isAdmin={false} targetDeptId={targetDeptId} />
               )}
@@ -1831,18 +1809,14 @@
       );
     }
 
-    // --- SMART UNIFIED REPLICA DASHBOARD (Handles both 2025 & 2026 seamlessly) ---
     function LegacyVaultDashboard({ year, legacyData, setIframeUrl, isAdmin, targetDeptId }) {
        const [vaultTab, setVaultTab] = useState('native_overview');
        const [overviewMonth, setOverviewMonth] = useState('all');
        
-       // Optimization: Only render 50 comments at a time to prevent UI lag.
        const [visibleComments, setVisibleComments] = useState(50);
 
-       // Reset rendering limit when user changes tabs or months
        useEffect(() => { setVisibleComments(50); }, [overviewMonth, vaultTab]);
 
-       // Map links directly based on user role
        const myLinks = isAdmin ? legacyData?.links?.[0] : legacyData?.links?.find(l => l.System_ID === targetDeptId);
 
        const analytics = useMemo(() => {
@@ -1859,22 +1833,20 @@
           let totalPoints = 0;
           let maxPoints = 0;
 
-          // Process row by row quickly
           legacyData.data.forEach((row, index) => {
              const rawDate = row["Timestamp"];
              const dateObj = new Date(rawDate);
              if (isNaN(dateObj.getTime())) return;
              const monthKey = getMonthString(dateObj);
-             if (monthKey.indexOf(year) === -1) return; // Ensure it only parses the requested year
+             if (monthKey.indexOf(year) === -1) return; 
 
              if (!monthsData[monthKey]) monthsData[monthKey] = { count: 0, score: 0, max: 0 };
              monthsData[monthKey].count += 1;
 
-             // Score Parsing (4-point scale logic)
              let rowPoints = 0;
              let rowMax = 0;
              Object.keys(row).forEach(key => {
-                if (key.includes('[')) { // Only score columns have brackets
+                if (key.includes('[')) { 
                    const val = Number(row[key]);
                    if (val >= 1 && val <= 4) {
                       rowPoints += val;
@@ -1887,7 +1859,6 @@
              totalPoints += rowPoints;
              maxPoints += rowMax;
 
-             // Comments Parsing (Column 56)
              const rawComment = row["Do you have comments or suggestions?  "];
              if (rawComment && rawComment.trim().length > 0) {
                  allComments.push({
@@ -1898,7 +1869,6 @@
                  });
              }
 
-             // General Insights Parsing
              const v1 = row["Have you visited or have you been admitted to another hospital?"];
              if (v1 === 'Yes') insightCounts.q1.Yes++; else if (v1 === 'No') insightCounts.q1.No++;
 
@@ -1920,7 +1890,6 @@
           };
        }, [legacyData, year]);
 
-       // Dynamic Month Filter Logic
        let displayCensus = analytics.totalCensus;
        let displaySat = analytics.overallSatPct;
        let displayedComments = analytics.comments;
@@ -1938,7 +1907,6 @@
        return (
           <div className="animate-in slide-in-from-bottom-2 space-y-10 no-print">
              
-             {/* DYNAMIC HEADER BANNER */}
              <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-8 sm:p-10 rounded-[2rem] shadow-xl border border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none"><Database className="w-40 h-40" /></div>
                 <div className="relative z-10 w-full">
@@ -1953,7 +1921,6 @@
                 </div>
              </div>
 
-             {/* SUB-TAB 1: NATIVE REPLICA OVERVIEW */}
              {vaultTab === 'native_overview' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                    <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap gap-4">
@@ -2010,7 +1977,6 @@
                       </div>
                    </div>
                    
-                   {/* Legacy Insights (Admin Only) */}
                    {isAdmin && (
                       <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem]">
                          <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-6 font-serif">{year} General Insights (Full Year)</h3>
@@ -2068,7 +2034,6 @@
                 </div>
              )}
 
-             {/* SUB-TAB 2: RAW FEEDBACK MASTERLIST */}
              {vaultTab === 'native_feedback' && (
                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4">
                    <div className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -2087,25 +2052,25 @@
                          </select>
                       </div>
                    </div>
-                   <div className="overflow-x-auto custom-scrollbar max-h-[600px] overflow-y-auto print:overflow-visible print:max-h-none">
-                      <table className="w-full text-left min-w-[800px] print:min-w-0">
+                   <div className="overflow-x-auto custom-scrollbar max-h-[600px] overflow-y-auto print:overflow-visible print:max-h-none report-table-wrapper">
+                      <table className="w-full text-left min-w-[800px]">
                          <thead className="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider text-xs border-b-2 border-slate-200 dark:border-slate-700 sticky top-0 z-10 shadow-sm print:bg-transparent print:text-black">
                             <tr>
-                               <th className="p-5 w-40 border-r border-slate-100 dark:border-slate-700">Date</th>
-                               <th className="p-5 w-48 border-r border-slate-100 dark:border-slate-700">Patient Name</th>
-                               <th className="p-5">Comments / Suggestions</th>
+                               <th className="p-4 align-top min-w-[140px] border-r border-slate-100 dark:border-slate-700 whitespace-nowrap">Date</th>
+                               <th className="p-4 align-top min-w-[180px] border-r border-slate-100 dark:border-slate-700 whitespace-nowrap">Patient Name</th>
+                               <th className="p-4 align-top whitespace-nowrap">Comments / Suggestions</th>
                             </tr>
                          </thead>
                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-800 dark:text-slate-200 font-medium print:text-black">
                             {displayedComments.slice(0, visibleComments).map(c => (
                                <tr key={c.id} className="hover:bg-amber-50 dark:hover:bg-slate-700/50 transition-colors break-inside-avoid">
-                                  <td className="p-5 border-r border-slate-100 dark:border-slate-700 text-sm whitespace-nowrap align-top">
+                                  <td className="p-4 align-top border-r border-slate-100 dark:border-slate-700 text-sm whitespace-nowrap">
                                      {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
                                   </td>
-                                  <td className="p-5 border-r border-slate-100 dark:border-slate-700 font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 align-top">
+                                  <td className="p-4 align-top border-r border-slate-100 dark:border-slate-700 font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                      {c.name}
                                   </td>
-                                  <td className="p-5 italic leading-relaxed text-slate-700 dark:text-slate-300 min-w-[300px] align-top">
+                                  <td className="p-4 align-top italic leading-relaxed text-slate-700 dark:text-slate-300 min-w-[300px] break-words">
                                      "{c.text}"
                                   </td>
                                </tr>
@@ -2126,7 +2091,6 @@
                 </div>
              )}
 
-             {/* SUB-TAB 3: OFFICIAL GOOGLE DOCS LINKS */}
              {vaultTab === 'official_docs' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4">
                    {!myLinks ? (
@@ -2371,14 +2335,14 @@
                         </div>
                         <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors shadow-sm no-print"><Printer className="w-4 h-4" /> Print List</button>
                      </div>
-                     <div className="overflow-x-auto custom-scrollbar print:overflow-visible">
-                        <table className="w-full text-left min-w-[800px] print:min-w-0">
+                     <div className="overflow-x-auto custom-scrollbar report-table-wrapper">
+                        <table className="w-full text-left min-w-[800px]">
                            <thead className="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black uppercase tracking-wider text-xs border-b-2 border-slate-200 dark:border-slate-700 print:bg-transparent print:text-black">
                               <tr>
-                                 <th className="p-5 w-32 border-r border-slate-100 dark:border-slate-700">Date</th>
-                                 <th className="p-5 w-64 border-r border-slate-100 dark:border-slate-700">Department</th>
-                                 <th className="p-5">Comments / Suggestions</th>
-                                 <th className="p-5 w-40 text-center border-l border-slate-100 dark:border-slate-700">Status</th>
+                                 <th className="p-4 align-top w-32 border-r border-slate-100 dark:border-slate-700 whitespace-nowrap">Date</th>
+                                 <th className="p-4 align-top w-64 border-r border-slate-100 dark:border-slate-700 whitespace-nowrap">Department</th>
+                                 <th className="p-4 align-top whitespace-nowrap">Comments / Suggestions</th>
+                                 <th className="p-4 align-top w-40 text-center border-l border-slate-100 dark:border-slate-700 whitespace-nowrap">Status</th>
                               </tr>
                            </thead>
                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-800 dark:text-slate-200 font-medium print:text-black">
@@ -2407,16 +2371,16 @@
 
                                  return (
                                     <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors break-inside-avoid">
-                                       <td className="p-5 border-r border-slate-100 dark:border-slate-700 text-sm whitespace-nowrap align-top">
+                                       <td className="p-4 align-top border-r border-slate-100 dark:border-slate-700 text-sm whitespace-nowrap">
                                           {isNaN(new Date(c.date).getTime()) ? c.date : new Date(c.date).toLocaleDateString('en-US')}
                                        </td>
-                                       <td className="p-5 border-r border-slate-100 dark:border-slate-700 font-bold uppercase text-xs tracking-wider text-slate-500 dark:text-slate-400 align-top">
+                                       <td className="p-4 align-top border-r border-slate-100 dark:border-slate-700 font-bold uppercase text-xs tracking-wider text-slate-500 dark:text-slate-400">
                                           {c.deptName}
                                        </td>
-                                       <td className="p-5 italic leading-relaxed text-slate-700 dark:text-slate-300 min-w-[300px] align-top">
+                                       <td className="p-4 align-top italic leading-relaxed text-slate-700 dark:text-slate-300 min-w-[300px] break-words">
                                           "{c.text}"
                                        </td>
-                                       <td className="p-5 text-center border-l border-slate-100 dark:border-slate-700 align-top">
+                                       <td className="p-4 align-top text-center border-l border-slate-100 dark:border-slate-700">
                                           {displayStatus && <span className={`text-xs font-black uppercase tracking-widest ${statusColor}`}>{displayStatus}</span>}
                                        </td>
                                     </tr>
@@ -2757,7 +2721,6 @@
           
           <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-10 pb-20">
             
-            {/* INTAKE SECTION */}
             <div className="bg-white/95 dark:bg-slate-800/95 sm:rounded-[2rem] shadow-xl overflow-hidden border-t-8 border-blue-600 dark:border-blue-500 sm:border sm:border-white/50 dark:sm:border-slate-700/50 backdrop-blur-md">
               <div className="bg-blue-50 dark:bg-slate-900/50 p-6 sm:p-10 border-b border-blue-100 dark:border-slate-700 flex items-center justify-between">
                 <div>
@@ -2782,7 +2745,6 @@
               </div>
             </div>
 
-            {/* DEPARTMENTS SECTION */}
             <div className="px-4 sm:px-0 space-y-4 sm:space-y-8">
               <div className="text-center py-6">
                  <h2 className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-white font-serif mb-3 tracking-tight">Rate Your Experience</h2>
@@ -2891,7 +2853,6 @@
               ))}
             </div>
 
-            {/* OVERALL EXPERIENCE */}
             <div className="bg-slate-900 dark:bg-slate-950 text-white sm:rounded-[2rem] shadow-2xl overflow-hidden -mx-4 sm:mx-0 mt-12 border border-slate-800 dark:border-slate-800">
               <div className="p-6 sm:p-10 border-b border-slate-800 text-center">
                 <h2 className="text-3xl sm:text-4xl font-black font-serif tracking-tight">Overall Experience</h2>
