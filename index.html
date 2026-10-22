@@ -37,7 +37,7 @@
 <body class="transition-colors duration-300 bg-slate-50 dark:bg-slate-900">
   <div id="root"></div>
 
-  <script type="text/babel" data-type="module">
+  <script type="text/babel" data-type="module" data-presets="env,react">
     import React, { useState, useEffect, useMemo, useRef } from 'react';
     import { createRoot } from 'react-dom/client';
     import { 
@@ -698,6 +698,7 @@ function AdminDashboard({ responses, censusData, setCensusData, activeDepartment
       const [isSavingCensus, setIsSavingCensus] = useState(false);
 
       const [volumeViewMode, setVolumeViewMode] = useState('rate'); 
+      const [insightsViewMode, setInsightsViewMode] = useState('yearly'); 
 
       const liveDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       const currentMonthKey = getMonthString(new Date());
@@ -966,19 +967,20 @@ function AdminDashboard({ responses, censusData, setCensusData, activeDepartment
           <div className="p-4 sm:p-10">
 
             {activeTab === 'overview' && (
-              <div className="space-y-8 animate-in slide-in-from-bottom-2">
+              <div className="space-y-8 animate-in slide-in-from-bottom-2 print:space-y-4">
 
-                <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap gap-4">
+                <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap gap-4 print:border-0 print:shadow-none print:p-0">
                   <h3 className="text-xl font-black text-slate-800 dark:text-white font-serif flex items-center gap-2"><BarChart className="text-blue-500 w-6 h-6"/> Dashboard Filter</h3>
                   <div className="flex items-center gap-3">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Select Month:</label>
-                    <select className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 px-4 text-sm font-bold text-slate-800 dark:text-white outline-none focus:border-blue-500 shadow-inner" value={overviewMonth} onChange={e => setOverviewMonth(e.target.value)}>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest no-print">Select Month:</label>
+                    <select className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 px-4 text-sm font-bold text-slate-800 dark:text-white outline-none focus:border-blue-500 shadow-inner print:bg-transparent print:border-0 print:text-xl print:text-black print:appearance-none print:pl-0" value={overviewMonth} onChange={e => setOverviewMonth(e.target.value)}>
                        {analytics.allMonthsKeys.map(mk => <option key={mk} value={mk}>{ALL_MONTHS_LABELS[parseInt(mk.split('-')[1])-1]} {mk.split('-')[0]}</option>)}
                     </select>
+                    <button onClick={() => window.print()} className="bg-slate-800 dark:bg-slate-700 text-white px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 dark:hover:bg-slate-600 shadow-md no-print ml-2"><Printer className="w-4 h-4" /> Print Dashboard</button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 print:grid-cols-4 gap-6 print:gap-4 print:mb-4">
                   <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-sm hover:border-blue-300 transition-colors relative flex flex-col justify-between">
                     <div>
                       <p className="text-slate-600 dark:text-slate-300 font-bold mb-1 uppercase tracking-wide text-sm">Total Census</p>
@@ -1056,7 +1058,7 @@ function AdminDashboard({ responses, censusData, setCensusData, activeDepartment
                       </div>
                   </div>
 
-                  <div className="flex items-end justify-between gap-2 sm:gap-4 h-[400px] sm:h-[500px] border-b-4 border-slate-100 dark:border-slate-700 pb-2 relative">
+                  <div className="flex items-end justify-between gap-2 sm:gap-4 h-[400px] sm:h-[500px] print:h-[250px] border-b-4 border-slate-100 dark:border-slate-700 pb-2 relative print:break-inside-avoid">
                      {analytics.allMonthsKeys.map((mk, index) => {
                         const count = analytics.monthlyResponsesTally[mk];
                         const mCensus = parseInt(censusData[mk]) || 0;
@@ -1138,16 +1140,27 @@ function AdminDashboard({ responses, censusData, setCensusData, activeDepartment
                 </div>
 
                 <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-6 sm:p-10 rounded-[2.5rem]">
-                   <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-8 flex items-center gap-3 font-serif"><Star className="w-8 h-8 text-amber-500" /> General Satisfaction Insights</h3>
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                     <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white flex items-center gap-3 font-serif"><Star className="w-8 h-8 text-amber-500" /> General Satisfaction Insights</h3>
+                     <div className="flex bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <button onClick={() => setInsightsViewMode('yearly')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${insightsViewMode === 'yearly' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}>Yearly (All Time)</button>
+                        <button onClick={() => setInsightsViewMode('monthly')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${insightsViewMode === 'monthly' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}>Selected Month</button>
+                     </div>
+                  </div>
 
-                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 print:grid-cols-3 gap-6 mb-6 print:gap-4 print:break-inside-avoid">
                      {GENERAL_QUESTIONS.filter(q => q.type === 'yesno').map(q => {
                        const tally = analytics.genTallies[q.id];
-                       const total = tally.overall.Yes + tally.overall.No;
-                       const pctYes = total > 0 ? Math.round((tally.overall.Yes / total) * 100) : 0;
+                       
+                       // Check the toggle and grab the correct data
+                       const yesCount = insightsViewMode === 'monthly' && tally.monthly[overviewMonth] ? tally.monthly[overviewMonth].Yes : (insightsViewMode === 'monthly' ? 0 : tally.overall.Yes);
+                       const noCount = insightsViewMode === 'monthly' && tally.monthly[overviewMonth] ? tally.monthly[overviewMonth].No : (insightsViewMode === 'monthly' ? 0 : tally.overall.No);
+                       
+                       const total = yesCount + noCount;
+                       const pctYes = total > 0 ? Math.round((yesCount / total) * 100) : 0;
 
                        return (
-                         <div key={q.id} onClick={() => setDrillDown({ type: 'general_question', data: tally, questionText: q.text })} className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md cursor-pointer transition-all group flex flex-col justify-between">
+                         <div key={q.id} onClick={() => setDrillDown({ type: 'general_question', data: tally, questionText: q.text, viewMonth: insightsViewMode === 'monthly' ? overviewMonth : null })} className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md cursor-pointer transition-all group flex flex-col justify-between">
                            <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-6 h-10 line-clamp-2 leading-relaxed">{q.text}</p>
                            <div className="flex items-center justify-between">
                              <div className="relative w-20 h-20 shrink-0">
@@ -1161,11 +1174,11 @@ function AdminDashboard({ responses, censusData, setCensusData, activeDepartment
                              </div>
                              <div className="text-right flex-1 ml-4">
                                <div className="flex items-center justify-end gap-2 mb-2">
-                                 <span className="text-lg font-black text-blue-600 dark:text-blue-400">{tally.overall.Yes}</span>
+                                 <span className="text-lg font-black text-blue-600 dark:text-blue-400">{yesCount}</span>
                                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Yes</span>
                                </div>
                                <div className="flex items-center justify-end gap-2 mb-3">
-                                 <span className="text-lg font-black text-slate-500 dark:text-slate-400">{tally.overall.No}</span>
+                                 <span className="text-lg font-black text-slate-500 dark:text-slate-400">{noCount}</span>
                                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">No</span>
                                </div>
                                <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-900/50 text-slate-400 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 no-print ml-auto transition-colors shadow-sm border border-slate-100 dark:border-slate-600"><ChevronRight className="w-5 h-5"/></div>
@@ -1916,7 +1929,13 @@ function DepartmentDashboard({ responses, deptId, departments, flatDepartments, 
       const [showTip, setShowTip] = useState(true);
 
       useEffect(() => {
-         const negs = sortedComments.filter(c => commentCats[c.id] === 'negative');
+         // Filter out negative comments that have already been submitted to the Masterlist
+         const negs = sortedComments.filter(c => {
+            if (commentCats[c.id] !== 'negative') return false;
+            const isAlreadySubmitted = cqiReports.some(r => r.Department === targetDept?.title && r.Report_Month === selectedMonth && r.Complaint === c.text);
+            return !isAlreadySubmitted;
+         });
+
          setReportData(prevData => {
             return negs.map(c => {
                const existingItem = prevData.find(item => item.id === c.id);
@@ -1924,7 +1943,7 @@ function DepartmentDashboard({ responses, deptId, departments, flatDepartments, 
             });
          });
          setReportSuccess(false);
-      }, [sortedComments, commentCats, selectedMonth]);
+      }, [sortedComments, commentCats, selectedMonth, cqiReports, targetDept]);
 
       const handleReportUpdate = (index, field, value) => { setReportData(prev => { const up = [...prev]; up[index] = { ...up[index], [field]: value }; return up; }); };
 
@@ -2907,12 +2926,28 @@ function DepartmentDashboard({ responses, deptId, departments, flatDepartments, 
     function DrillDownModal({ drillDown, setDrillDown }) {
       const { type, data, questionText, viewMonth, patientData, allowedDeptIds } = drillDown;
 
-      // Extract specific department comments based on allowed list (PRIVACY FIX)
+      // Extract specific department feedback based on allowed list (PRIVACY FIX)
       const allowedComments = useMemo(() => {
           if (type !== 'daily_comments' || !patientData?.departments) return [];
           return Object.entries(patientData.departments)
-              .filter(([key, d]) => d.comment && d.comment.trim() !== '' && (!allowedDeptIds || allowedDeptIds.includes(key)))
-              .map(([key, d]) => ({ title: d.title, comment: d.comment }));
+              .filter(([key, d]) => {
+                  const hasFeedback = (d.comment && d.comment.trim() !== '') || (d.answers && Object.keys(d.answers).length > 0);
+                  return hasFeedback && (!allowedDeptIds || allowedDeptIds.includes(key)) && !d.skipped;
+              })
+              .map(([key, d]) => {
+                  let numericScore = 0;
+                  let scoreText = "No Rating";
+                  if (d.answers) {
+                     const scores = Object.values(d.answers).map(Number).filter(n => n > 0);
+                     if (scores.length > 0) {
+                        numericScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+                        if (numericScore === 3) scoreText = "😁 Happy (3)";
+                        else if (numericScore === 2) scoreText = "😐 Neutral (2)";
+                        else if (numericScore === 1) scoreText = "😢 Sad (1)";
+                     }
+                  }
+                  return { title: d.title, comment: d.comment, numericScore, scoreText };
+              });
       }, [type, patientData, allowedDeptIds]);
 
       return (
@@ -2931,8 +2966,8 @@ function DepartmentDashboard({ responses, deptId, departments, flatDepartments, 
             </div>
 
             <div className="p-8 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-slate-900 transition-colors print:overflow-visible print:h-auto print:block overscroll-contain print:p-0 print:bg-white">
-
-              {type === 'daily_comments' && (
+              <div className="w-full">
+                {type === 'daily_comments' ? (
                  <div className="space-y-6">
                    <div className="flex items-center gap-4 mb-6">
                      <h4 className="text-2xl font-black text-slate-800 dark:text-white font-serif print:text-black">Patient Feedback Details</h4>
@@ -2954,27 +2989,34 @@ function DepartmentDashboard({ responses, deptId, departments, flatDepartments, 
                    </div>
 
                    <div>
-                      <h5 className="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest text-sm mb-4 print:text-slate-800">Department Comments</h5>
+                      <h5 className="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest text-sm mb-4 print:text-slate-800">Department Feedback</h5>
                       <div className="grid grid-cols-1 gap-4">
                          {allowedComments.length === 0 ? (
                             <p className="text-slate-500 dark:text-slate-400 italic bg-white dark:bg-slate-800 p-6 border border-slate-200 dark:border-slate-700 rounded-xl text-center print:text-black print:border-slate-300 print:bg-transparent">
-                               This patient did not leave any specific written feedback for your department.
+                               This patient did not leave any ratings or feedback for your department.
                             </p>
                          ) : (
                             allowedComments.map((deptData, idx) => (
                                <div key={idx} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm print:border print:border-slate-300 print:bg-transparent print:break-inside-avoid">
-                                  <div className="bg-blue-100 dark:bg-slate-700 text-blue-800 dark:text-slate-300 px-3 py-1 rounded-lg font-black text-xs mb-3 inline-block uppercase tracking-wider print:bg-transparent print:border print:border-slate-400 print:text-black">{deptData.title}</div>
-                                  <p className="text-slate-800 dark:text-slate-200 font-medium text-lg leading-relaxed print:text-black">"{deptData.comment}"</p>
+                                  <div className="flex justify-between items-start mb-4 gap-4">
+                                     <div className="bg-blue-100 dark:bg-slate-700 text-blue-800 dark:text-slate-300 px-3 py-1 rounded-lg font-black text-xs inline-block uppercase tracking-wider print:bg-transparent print:border print:border-slate-400 print:text-black">{deptData.title}</div>
+                                     <div className={`text-sm font-black px-3 py-1 rounded-lg border ${deptData.numericScore === 3 ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50' : deptData.numericScore === 2 ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800/50' : deptData.numericScore === 1 ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50' : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'} print:border-slate-400 print:text-black`}>
+                                        {deptData.scoreText}
+                                     </div>
+                                  </div>
+                                  {deptData.comment && deptData.comment.trim() !== '' ? (
+                                     <p className="text-slate-800 dark:text-slate-200 font-medium text-lg leading-relaxed print:text-black">"{deptData.comment}"</p>
+                                  ) : (
+                                     <p className="text-slate-400 dark:text-slate-500 italic text-sm font-medium print:text-slate-600">No written comment provided.</p>
+                                  )}
                                </div>
                             ))
                          )}
                       </div>
                    </div>
                  </div>
-              )}
-
-              {type === 'general_question' && (
-                 viewMonth ? (
+                ) : type === 'general_question' ? (
+                   viewMonth ? (
                    <div className="space-y-6">
                       <div className="flex items-center gap-4 mb-6">
                         <button onClick={() => setDrillDown({...drillDown, viewMonth: null})} className="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-slate-200 dark:bg-slate-800 p-2 rounded-lg no-print transition-colors"><ArrowLeft className="w-5 h-5"/></button>
@@ -3001,7 +3043,7 @@ function DepartmentDashboard({ responses, deptId, departments, flatDepartments, 
                         </div>
                       )}
                    </div>
-                 ) : (
+                   ) : (
                    <div>
                       <h4 className="text-2xl font-black text-slate-800 dark:text-white font-serif mb-6 print:text-black">Monthly Breakdown</h4>
                       <div className="space-y-4">
@@ -3025,8 +3067,9 @@ function DepartmentDashboard({ responses, deptId, departments, flatDepartments, 
                         })}
                       </div>
                    </div>
-                 )
-              )}
+                   )
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
