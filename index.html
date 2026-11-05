@@ -77,6 +77,24 @@
           'Security': 'General Services: Security',
           'Parking': 'General Services: Parking'
         }
+      },
+      { 
+        id: 'medical_records', 
+        title: 'Medical Records', 
+        type: 'standard', 
+        questions: [{ id: 'mr_1', text: 'How was your experience with the Medical Records Service/Staff(s)?' }] 
+      },
+      { 
+        id: 'customer_relations', 
+        title: 'Customer Relations', 
+        type: 'standard', 
+        questions: [{ id: 'cro_1', text: 'How was your experience with our Customer Relations Officer/Staff(s)?' }] 
+      },
+      { 
+        id: 'your_third_dept', 
+        title: 'Your Third Department Name', 
+        type: 'standard', 
+        questions: [{ id: 'third_1', text: 'How was your experience with this department?' }] 
       }
     ];
 
@@ -115,7 +133,7 @@
         return flat;
     };
 
-    const VERSION_KEY = "tdmh_system_v26";
+    const VERSION_KEY = "tdmh_system_v27";
 
     function App() {
       const [view, setView] = useState('home'); 
